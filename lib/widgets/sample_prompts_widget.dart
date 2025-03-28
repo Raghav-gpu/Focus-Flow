@@ -27,8 +27,7 @@ class _InfiniteScrollWidgetState extends State<InfiniteScrollWidget> {
 
   void _startAutoScroll() {
     Future.delayed(Duration.zero, () async {
-      while (true) {
-        if (!mounted || !_scrollController.hasClients) return;
+      while (mounted && _scrollController.hasClients) {
         await _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: Duration(
@@ -51,8 +50,10 @@ class _InfiniteScrollWidgetState extends State<InfiniteScrollWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Container(
+      height: 64, // Slightly taller for a premium feel
+      width: screenWidth,
       child: ListView.builder(
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
@@ -68,15 +69,32 @@ class _InfiniteScrollWidgetState extends State<InfiniteScrollWidget> {
 
   Widget _buildPrompt(String text) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFF1A1A1A), // Solid dark gray, no transparency
+        borderRadius: BorderRadius.circular(14), // Smooth, modern corners
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1), // Very subtle border
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25), // Soft shadow for depth
+            blurRadius: 12,
+            spreadRadius: 2,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8, // Wider spacing for elegance
+        ),
       ),
     );
   }
@@ -114,7 +132,7 @@ class InfiniteScrollPage extends StatelessWidget {
       body: Center(
         child: InfiniteScrollWidget(
           prompts: _prompts,
-          scrollSpeed: 100.0, // Optional: can be customized
+          scrollSpeed: 100.0, // Slower for a smoother scroll
         ),
       ),
     );

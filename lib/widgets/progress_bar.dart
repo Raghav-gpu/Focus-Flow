@@ -46,6 +46,8 @@ class _XPBarState extends State<XPBar> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -53,10 +55,13 @@ class _XPBarState extends State<XPBar> with SingleTickerProviderStateMixin {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(
+            height: 20,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          return _buildXPBar(context, 1, 0, 100); // Default: Level 1, 0 XP
+          return _buildXPBar(context, 1, 0, 100);
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -64,7 +69,6 @@ class _XPBarState extends State<XPBar> with SingleTickerProviderStateMixin {
         final double xp = (data['xp'] ?? 0).toDouble();
         final double maxXP = _calculateMaxXP(level);
 
-        // Update animation only if XP changes
         if (xp != _previousXP) {
           _updateAnimation(xp);
         }
@@ -75,98 +79,64 @@ class _XPBarState extends State<XPBar> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildXPBar(BuildContext context, int level, double xp, double maxXP) {
-    // Ensure maxXP is never 0 to avoid division by zero
-    final double safeMaxXP = maxXP > 0 ? maxXP : 100;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final safeMaxXP = maxXP > 0 ? maxXP : 100;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AnimatedBuilder(
-          animation: _xpAnimation,
-          builder: (context, child) {
-            // Calculate progress safely, clamping between 0 and 1
-            final double progress =
-                (_xpAnimation.value / safeMaxXP).clamp(0.0, 1.0);
-            final double barWidth = progress * 300;
-
-            return Stack(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               children: [
-                Container(
-                  width: 300,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(10),
+                Text(
+                  "Level $level",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
-                Container(
-                  width:
-                      barWidth.isFinite ? barWidth : 0, // Fallback to 0 if NaN
-                  height: 14,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6A00F4), Color(0xFFA100F2)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: progress > 0.9
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFF6A00F4).withOpacity(0.8),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : [],
+                SizedBox(width: screenWidth * 0.02),
+                Text(
+                  "- Focus Master",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    color: Colors.grey[400],
                   ),
                 ),
               ],
+            ),
+            AnimatedBuilder(
+              animation: _xpAnimation,
+              builder: (context, child) {
+                return Text(
+                  "${_xpAnimation.value.toInt()}/$safeMaxXP XP",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.grey[400],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        SizedBox(height: screenWidth * 0.02),
+        AnimatedBuilder(
+          animation: _xpAnimation,
+          builder: (context, child) {
+            final progress = (_xpAnimation.value / safeMaxXP).clamp(0.0, 1.0);
+            return SizedBox(
+              height: screenWidth * 0.015,
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.grey[800],
+                valueColor: const AlwaysStoppedAnimation(Colors.blueAccent),
+                borderRadius: BorderRadius.circular(10),
+              ),
             );
           },
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6A00F4),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6A00F4).withOpacity(0.5),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Text(
-                  "Level $level",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              AnimatedBuilder(
-                animation: _xpAnimation,
-                builder: (context, child) {
-                  return Text(
-                    "${_xpAnimation.value.toStringAsFixed(0)} / $safeMaxXP XP",
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
         ),
       ],
     );

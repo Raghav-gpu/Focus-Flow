@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:focus/services/ai_service.dart';
 import 'package:focus/services/chat_manager.dart';
 import 'package:focus/services/task_service.dart';
-import 'package:focus/widgets/focus_animation.dart';
 import 'package:focus/widgets/message_bubble.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -19,11 +19,8 @@ class ChatPage extends StatefulWidget {
   _ChatPageState createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage>
-    with SingleTickerProviderStateMixin {
+class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
-  late AnimationController _promptController;
-  late Animation<double> _promptAnimation;
   final TaskService _taskService = TaskService();
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = true;
@@ -32,38 +29,10 @@ class _ChatPageState extends State<ChatPage>
   late stt.SpeechToText _speech;
   bool _isListening = false;
 
-  final List<Map<String, String>> _prompts = [
-    {'text': 'Build my daily schedule for today', 'emoji': '📅'},
-    {'text': 'Build my schedule for tomorrow', 'emoji': '📅'},
-    {'text': 'Build my schedule for next week', 'emoji': '📅'},
-    {'text': 'Boost my focus now', 'emoji': '🚀'},
-    {'text': 'Plan my study session', 'emoji': '📚'},
-    {'text': 'Set my daily goals', 'emoji': '🎯'},
-    {'text': 'Organize my tasks now', 'emoji': '📋'},
-    {'text': 'Schedule a quick break', 'emoji': '☕'},
-    {'text': 'Prioritize my workload today', 'emoji': '⚖️'},
-    {'text': 'Track my progress today', 'emoji': '📊'},
-    {'text': 'Clear my distractions now', 'emoji': '🔇'},
-    {'text': 'Create a focus playlist', 'emoji': '🎶'},
-    {'text': 'Plan my next meeting', 'emoji': '📞'},
-    {'text': 'Simplify my day now', 'emoji': '🧹'},
-    {'text': 'Set a task deadline', 'emoji': '⏰'},
-    {'text': 'Review my week ahead', 'emoji': '🗓️'},
-    {'text': 'Start a focus timer', 'emoji': '⏳'},
-    {'text': 'Assign my task priorities', 'emoji': '⭐'},
-  ];
-
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _promptController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    )..repeat();
-    _promptAnimation = Tween<double>(begin: 0.0, end: -1.0).animate(
-      CurvedAnimation(parent: _promptController, curve: Curves.linear),
-    );
     _scrollController.addListener(() {
       setState(() {
         _isAtBottom = _scrollController.position.pixels >=
@@ -148,11 +117,6 @@ class _ChatPageState extends State<ChatPage>
     }
   }
 
-  void _handlePromptTap(String text) {
-    _messageController.text = text;
-    _sendMessage();
-  }
-
   void _startNewChat() {
     setState(() {
       _chatManager.clearChat();
@@ -167,7 +131,6 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
-  // Speech-to-Text with Permission Handling
   Future<bool> _requestMicrophonePermission() async {
     final status = await Permission.microphone.request();
     if (status.isGranted) {
@@ -180,8 +143,7 @@ class _ChatPageState extends State<ChatPage>
     } else if (status.isPermanentlyDenied) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enable microphone permission in settings'),
-        ),
+            content: Text('Please enable microphone permission in settings')),
       );
       await openAppSettings();
       return false;
@@ -210,7 +172,7 @@ class _ChatPageState extends State<ChatPage>
             _stopListening();
           }
         },
-        localeId: 'en_US', // Adjust as needed
+        localeId: 'en_US',
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -227,7 +189,6 @@ class _ChatPageState extends State<ChatPage>
   @override
   void dispose() {
     _messageController.dispose();
-    _promptController.dispose();
     _scrollController.dispose();
     _speech.stop();
     super.dispose();
@@ -319,32 +280,21 @@ class _ChatPageState extends State<ChatPage>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final animationSize = (screenWidth * 0.8)
+        .clamp(250.0, 400.0); // Dynamic size between 250 and 400
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
-        title: Row(
-          children: [
-            const Text(
-              'FocusFlow AI',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    color: Colors.blueAccent,
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        title: const Text(
+          'FocusFlow AI',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           IconButton(
@@ -353,18 +303,6 @@ class _ChatPageState extends State<ChatPage>
             onPressed: _startNewChat,
           ),
         ],
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.black.withOpacity(0.7),
-                Colors.blueAccent.withOpacity(0.3),
-              ],
-            ),
-          ),
-        ),
       ),
       backgroundColor: Colors.black,
       body: Stack(
@@ -412,35 +350,47 @@ class _ChatPageState extends State<ChatPage>
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     SizedBox(
-                                      height: 250,
-                                      child: FocusAnimation(),
+                                      height: animationSize, // Dynamic height
+                                      width: animationSize, // Dynamic width
+                                      child: Lottie.asset(
+                                        'assets/animations/chatpage_animation.json',
+                                        repeat: true,
+                                        animate: _chatManager.messages.isEmpty,
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
-                                    const SizedBox(height: 20),
-                                    const Text(
+                                    SizedBox(
+                                        height: screenHeight *
+                                            0.03), // Proportional spacing
+                                    Text(
                                       'Welcome to FocusFlow AI',
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 22,
+                                        fontSize: screenWidth *
+                                            0.06, // Responsive font size
                                         fontWeight: FontWeight.bold,
-                                        shadows: [
+                                        shadows: const [
                                           Shadow(
                                             color: Colors.blueAccent,
                                             blurRadius: 8,
                                           ),
                                         ],
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    const SizedBox(height: 10),
-                                    const Text(
+                                    SizedBox(
+                                        height: screenHeight *
+                                            0.015), // Proportional spacing
+                                    Text(
                                       'Start boosting your focus now!',
                                       style: TextStyle(
                                         color: Colors.white70,
-                                        fontSize: 16,
+                                        fontSize: screenWidth *
+                                            0.04, // Responsive font size
                                         fontStyle: FontStyle.italic,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    const SizedBox(height: 20),
-                                    InfiniteScrollWidget(prompts: _prompts),
                                   ],
                                 ),
                               ),
@@ -593,105 +543,6 @@ class _ChatPageState extends State<ChatPage>
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// InfiniteScrollWidget remains unchanged
-class InfiniteScrollWidget extends StatefulWidget {
-  final List<Map<String, String>> prompts;
-  final double scrollSpeed;
-
-  const InfiniteScrollWidget({
-    super.key,
-    required this.prompts,
-    this.scrollSpeed = 100.0,
-  });
-
-  @override
-  _InfiniteScrollWidgetState createState() => _InfiniteScrollWidgetState();
-}
-
-class _InfiniteScrollWidgetState extends State<InfiniteScrollWidget> {
-  late ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    _startAutoScroll();
-  }
-
-  void _startAutoScroll() {
-    Future.delayed(Duration.zero, () async {
-      while (mounted && _scrollController.hasClients) {
-        await _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: Duration(
-              seconds: (_scrollController.position.maxScrollExtent /
-                      widget.scrollSpeed)
-                  .round()),
-          curve: Curves.linear,
-        );
-        if (!mounted || !_scrollController.hasClients) return;
-        _scrollController.jumpTo(0);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 60,
-      child: ListView.builder(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.prompts.length * 3,
-        itemBuilder: (context, index) {
-          final prompt = widget.prompts[index % widget.prompts.length];
-          return _buildPrompt('${prompt['emoji']} ${prompt['text']}');
-        },
-      ),
-    );
-  }
-
-  Widget _buildPrompt(String text) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.blueAccent.withOpacity(0.3),
-            Colors.black.withOpacity(0.5),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blueAccent.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
       ),
     );
   }

@@ -58,6 +58,8 @@ class TaskService {
     debugPrint('Adding task for user: $userId, Task: $task');
     try {
       final encryptedTask = await _encryptTask(task);
+      encryptedTask['notificationSent'] =
+          false; // Add this to track notifications
       final docRef = await _firestore
           .collection('users')
           .doc(userId)

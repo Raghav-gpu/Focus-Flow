@@ -1,201 +1,424 @@
-// lib/services/challenge_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
-import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'friend_service.dart';
 
 class ChallengeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final String _challengesCollection = 'challenges';
 
-  // Create a new challenge
+  // Create a new challenge (unchanged)
   Future<void> createChallenge(
     String senderId,
     String receiverId,
+    String title, // Add title parameter
     String description,
     int durationDays,
   ) async {
     try {
-      final challengeData = {
+      final now = DateTime.now();
+      await _firestore.collection(_challengesCollection).add({
         'senderId': senderId,
         'receiverId': receiverId,
+        'title': title, // Store title
         'description': description,
         'durationDays': durationDays,
-        'startDate': FieldValue.serverTimestamp(),
-        'status': 'pending', // pending, active, completed, abandoned
+        'startDate': now.toIso8601String(),
+        'endDate': now.add(Duration(days: durationDays)).toIso8601String(),
+        'status': 'pending',
         'senderProgress': 0,
         'receiverProgress': 0,
+        'createdAt': FieldValue.serverTimestamp(),
         'winner': null,
-      };
-
-      await _firestore.collection('challenges').add(challengeData);
-      debugPrint('Challenge created: $description');
+      });
+      debugPrint(
+          'Challenge created: senderId=$senderId, receiverId=$receiverId, title=$title, description=$description');
     } catch (e) {
       debugPrint('Error creating challenge: $e');
       rethrow;
     }
   }
 
-  // Accept a challenge
+  // Accept a challenge (unchanged)
   Future<void> acceptChallenge(String challengeId) async {
     try {
       await _firestore
-          .collection('challenges')
+          .collection(_challengesCollection)
           .doc(challengeId)
-          .update({'status': 'active'});
-      debugPrint('Challenge accepted: $challengeId');
+          .update({
+        'status': 'active',
+      });
+      debugPrint('Challenge accepted: challengeId=$challengeId');
     } catch (e) {
       debugPrint('Error accepting challenge: $e');
       rethrow;
     }
   }
 
-  // Submit a daily photo for verification
+  // Decline a challenge (unchanged)
+  Future<void> declineChallenge(String challengeId) async {
+    try {
+      await _firestore
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .delete();
+      debugPrint('Challenge declined and deleted: challengeId=$challengeId');
+    } catch (e) {
+      debugPrint('Error declining challenge: $e');
+      rethrow;
+    }
+  }
+
+  // Exit a challenge (unchanged)
+  Future<void> exitChallenge(String challengeId, String userId) async {
+    try {
+      final challengeDoc = await _firestore
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .get();
+      if (challengeDoc.exists) {
+        final challengeData = challengeDoc.data() as Map<String, dynamic>;
+        final senderId = challengeData['senderId'] as String;
+        final receiverId = challengeData['receiverId'] as String;
+        final opponentId = userId == senderId ? receiverId : senderId;
+
+        await _firestore
+            .collection(_challengesCollection)
+            .doc(challengeId)
+            .update({
+          'status': 'exited',
+          'winner': opponentId,
+          'exitedBy': userId,
+        });
+        debugPrint(
+            'Challenge exited: challengeId=$challengeId, exitedBy=$userId, winner=$opponentId');
+      }
+    } catch (e) {
+      debugPrint('Error exiting challenge: $e');
+      rethrow;
+    }
+  }
+
+  // Complete a challenge (updated)
+  Future<void> completeChallenge(String challengeId) async {
+    try {
+      final challengeDoc = await _firestore
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .get();
+      if (challengeDoc.exists) {
+        final challengeData = challengeDoc.data() as Map<String, dynamic>;
+        final senderProgress = challengeData['senderProgress'] as int? ?? 0;
+        final receiverProgress = challengeData['receiverProgress'] as int? ?? 0;
+        final senderId = challengeData['senderId'] as String;
+        final receiverId = challengeData['receiverId'] as String;
+        final endDateString = challengeData['endDate'] as String?;
+        final endDate = endDateString != null
+            ? DateTime.parse(endDateString)
+            : DateTime.now();
+        final currentStatus = challengeData['status'] as String? ?? 'pending';
+
+        if (DateTime.now().isAfter(endDate) &&
+            currentStatus != 'completed' &&
+            currentStatus != 'exited') {
+          String? winner;
+          if (senderProgress > receiverProgress) {
+            winner = senderId;
+          } else if (receiverProgress > senderProgress) {
+            winner = receiverId;
+          } else {
+            winner = 'tie';
+          }
+
+          // Update challenge status and winner
+          await _firestore
+              .collection(_challengesCollection)
+              .doc(challengeId)
+              .update({
+            'status': 'completed',
+            'winner': winner,
+          });
+
+          // Award 100 XP to the winner if there is one (not a tie)
+          if (winner != 'tie') {
+            await _firestore.collection('users').doc(winner).update({
+              'xp': FieldValue.increment(100),
+            });
+            debugPrint('Awarded 100 XP to winner: userId=$winner');
+          }
+
+          debugPrint(
+              'Challenge completed: challengeId=$challengeId, winner=$winner');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error completing challenge: $e');
+      rethrow;
+    }
+  }
+
+  // Check if user can submit a photo today (updated)
+  Future<bool> canSubmitPhoto(String userId, String challengeId) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay =
+          DateTime(today.year, today.month, today.day); // Midnight today
+      final endOfDay = startOfDay
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1)); // 23:59:59 today
+
+      final submissionsSnapshot = await _firestore
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .collection('submissions')
+          .where('userId', isEqualTo: userId)
+          .where('timestamp',
+              isGreaterThanOrEqualTo: startOfDay.toIso8601String())
+          .where('timestamp', isLessThanOrEqualTo: endOfDay.toIso8601String())
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (submissionsSnapshot.docs.isEmpty) {
+        debugPrint(
+            'No submissions today for challengeId=$challengeId, userId=$userId. Can submit.');
+        return true; // No submissions today, allow one
+      }
+
+      final latestSubmission = submissionsSnapshot.docs.first.data();
+      final verified = latestSubmission['verified'];
+
+      // If the latest submission is pending or approved, block further submissions today
+      // Allow only if rejected
+      final canSubmit = verified == false; // false means rejected
+      debugPrint(
+          'Latest submission for challengeId=$challengeId, userId=$userId: verified=$verified, canSubmit=$canSubmit');
+      return canSubmit;
+    } catch (e) {
+      debugPrint('Error checking submission eligibility: $e');
+      return false; // Default to false on error to prevent accidental submissions
+    }
+  }
+
+  // Submit a photo for a challenge (updated)
   Future<void> submitPhoto(
       String userId, String challengeId, XFile photo) async {
     try {
-      final file = File(photo.path);
-      final ref = _storage.ref().child(
-          'challenge_photos/$challengeId/$userId/${DateTime.now().toIso8601String()}');
-      await ref.putFile(file);
-      final photoUrl = await ref.getDownloadURL();
+      final canSubmit = await canSubmitPhoto(userId, challengeId);
+      if (!canSubmit) {
+        throw Exception(
+            'You can only submit one photo per day per challenge unless the previous one is rejected.');
+      }
 
-      final today =
-          DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD
-      await _firestore
-          .collection('challenges')
+      final storageRef = _storage.ref().child(
+          'challenges/$challengeId/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final Uint8List bytes = await photo.readAsBytes();
+      final UploadTask uploadTask = storageRef.putData(bytes);
+      final TaskSnapshot snapshot = await uploadTask.whenComplete(() => null);
+      final String downloadURL = await snapshot.ref.getDownloadURL();
+
+      final submissionData = {
+        'userId': userId,
+        'photoUrl': downloadURL,
+        'date': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+        'timestamp':
+            DateTime.now().toIso8601String(), // Use ISO string for consistency
+        'verified': null, // Pending verification
+      };
+
+      final submissionRef = await _firestore
+          .collection(_challengesCollection)
           .doc(challengeId)
           .collection('submissions')
-          .add({
-        'userId': userId,
-        'photoUrl': photoUrl,
-        'date': today,
-        'verified': false,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      debugPrint('Photo submitted for $challengeId by $userId');
+          .add(submissionData);
+      debugPrint(
+          'Photo submitted: challengeId=$challengeId, submissionId=${submissionRef.id}, data=$submissionData');
     } catch (e) {
       debugPrint('Error submitting photo: $e');
       rethrow;
     }
   }
 
-  // Verify a friend's photo submission
+  // Verify a submitted photo (unchanged)
   Future<void> verifyPhoto(
       String challengeId, String submissionId, bool isVerified) async {
     try {
+      // Update the submission's verified status
       await _firestore
-          .collection('challenges')
+          .collection(_challengesCollection)
           .doc(challengeId)
           .collection('submissions')
           .doc(submissionId)
           .update({'verified': isVerified});
+      debugPrint(
+          'Photo verified: challengeId=$challengeId, submissionId=$submissionId, verified=$isVerified');
 
+      // If approved, increment the user's progress
       if (isVerified) {
         final submissionDoc = await _firestore
-            .collection('challenges')
+            .collection(_challengesCollection)
             .doc(challengeId)
             .collection('submissions')
             .doc(submissionId)
             .get();
-        final userId = submissionDoc['userId'] as String;
+        final userId = submissionDoc.data()!['userId'] as String;
 
-        final challengeDoc =
-            await _firestore.collection('challenges').doc(challengeId).get();
-        final senderId = challengeDoc['senderId'] as String;
-        final fieldToUpdate =
-            userId == senderId ? 'senderProgress' : 'receiverProgress';
-
-        await _firestore
-            .collection('challenges')
+        final challengeDoc = await _firestore
+            .collection(_challengesCollection)
             .doc(challengeId)
-            .update({fieldToUpdate: FieldValue.increment(1)});
+            .get();
+        if (challengeDoc.exists) {
+          final challengeData = challengeDoc.data() as Map<String, dynamic>;
+          final senderId = challengeData['senderId'] as String;
+          final receiverId = challengeData['receiverId'] as String;
+
+          final fieldToUpdate =
+              userId == senderId ? 'senderProgress' : 'receiverProgress';
+          await _firestore
+              .collection(_challengesCollection)
+              .doc(challengeId)
+              .update({
+            fieldToUpdate: FieldValue.increment(1),
+          });
+          debugPrint('$fieldToUpdate incremented: challengeId=$challengeId');
+        }
       }
-      debugPrint('Photo verification updated: $submissionId - $isVerified');
     } catch (e) {
       debugPrint('Error verifying photo: $e');
       rethrow;
     }
   }
 
-  // Check challenge status and update XP
-  Future<void> checkChallengeStatus(String challengeId) async {
-    try {
-      final challengeDoc =
-          await _firestore.collection('challenges').doc(challengeId).get();
-      final data = challengeDoc.data()!;
-      final startDate = (data['startDate'] as Timestamp).toDate();
-      final durationDays = data['durationDays'] as int;
-      final senderId = data['senderId'] as String;
-      final receiverId = data['receiverId'] as String;
-      final senderProgress = data['senderProgress'] as int;
-      final receiverProgress = data['receiverProgress'] as int;
-
-      final daysElapsed = DateTime.now().difference(startDate).inDays;
-      if (daysElapsed >= durationDays) {
-        String? winner;
-        if (senderProgress > receiverProgress) {
-          winner = senderId;
-        } else if (receiverProgress > senderProgress) {
-          winner = receiverId;
-        } // Tie = no winner
-
-        await _firestore.collection('challenges').doc(challengeId).update({
-          'status': 'completed',
-          'winner': winner,
-        });
-
-        if (winner != null) {
-          await _updateXP(winner, senderId == winner ? receiverId : senderId);
-        }
-      }
-    } catch (e) {
-      debugPrint('Error checking challenge status: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _updateXP(String winnerId, String loserId) async {
-    const xpBoost = 50;
-    const xpLoss = 10;
-
-    await _firestore.collection('users').doc(winnerId).update({
-      'xp': FieldValue.increment(xpBoost),
-    });
-    await _firestore.collection('users').doc(loserId).update({
-      'xp': FieldValue.increment(-xpLoss),
-    });
-    debugPrint('XP updated: $winnerId +$xpBoost, $loserId -$xpLoss');
-  }
-
-  // Get active challenges for a user
+  // Get all challenges for a user (unchanged)
   Stream<List<Map<String, dynamic>>> getChallenges(String userId) {
     return _firestore
-        .collection('challenges')
+        .collection(_challengesCollection)
         .where(Filter.or(
           Filter('senderId', isEqualTo: userId),
           Filter('receiverId', isEqualTo: userId),
         ))
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['id'] = doc.id;
-              return data;
-            }).toList());
+        .map((snapshot) {
+      final challenges =
+          snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      return challenges;
+    });
   }
 
-  // Get submissions for a challenge
+  // Get submissions (unchanged)
   Stream<List<Map<String, dynamic>>> getSubmissions(String challengeId) {
     return _firestore
-        .collection('challenges')
+        .collection(_challengesCollection)
         .doc(challengeId)
         .collection('submissions')
+        .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['id'] = doc.id;
-              return data;
-            }).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+  }
+
+  // Get pending verifications (unchanged)
+  Stream<List<Map<String, dynamic>>> getPendingVerifications(String userId) {
+    return _firestore
+        .collection(_challengesCollection)
+        .where('status', isEqualTo: 'active')
+        .where(Filter.or(
+          Filter('senderId', isEqualTo: userId),
+          Filter('receiverId', isEqualTo: userId),
+        ))
+        .snapshots()
+        .asyncMap((challengeSnapshot) async {
+      final verifications = <Map<String, dynamic>>[];
+      for (final challengeDoc in challengeSnapshot.docs) {
+        final challengeId = challengeDoc.id;
+        final challengeData = challengeDoc.data();
+        final senderId = challengeData['senderId'] as String;
+        final receiverId = challengeData['receiverId'] as String;
+        final opponentId = userId == senderId ? receiverId : senderId;
+
+        final submissions = await _firestore
+            .collection(_challengesCollection)
+            .doc(challengeId)
+            .collection('submissions')
+            .where('userId', isEqualTo: opponentId)
+            .where('verified', isNull: true) // Only pending submissions
+            .get();
+
+        for (final submissionDoc in submissions.docs) {
+          final senderName =
+              await FriendService().getUsername(opponentId) ?? 'Unknown';
+          final data = submissionDoc.data();
+          verifications.add({
+            'challengeId': challengeId,
+            'submissionId': submissionDoc.id,
+            'challengeTitle': challengeData['description'] ?? 'No Title',
+            'senderId': opponentId,
+            'senderName': senderName,
+            'photoUrl': data['photoUrl'],
+            'date': data['date'],
+          });
+        }
+      }
+      debugPrint('Pending verifications count: ${verifications.length}');
+      return verifications;
+    });
+  }
+
+  // Get verification details (unchanged)
+  Future<Map<String, dynamic>> getVerificationDetails(
+      String challengeId, String submissionId) async {
+    final challengeDoc = await _firestore
+        .collection(_challengesCollection)
+        .doc(challengeId)
+        .get();
+    final submissionDoc = await _firestore
+        .collection(_challengesCollection)
+        .doc(challengeId)
+        .collection('submissions')
+        .doc(submissionId)
+        .get();
+
+    final senderId = challengeDoc.data()!['senderId'] as String;
+    final senderName = await FriendService().getUsername(senderId) ?? 'Unknown';
+
+    return {
+      'challengeId': challengeId,
+      'submissionId': submissionId,
+      'challengeTitle': challengeDoc.data()!['description'] ?? 'No Title',
+      'senderId': senderId,
+      'senderName': senderName,
+      'photoUrl': submissionDoc.data()!['photoUrl'],
+      'date': submissionDoc.data()!['date'],
+    };
+  }
+
+  // Get verified submissions (unchanged)
+  Stream<List<Map<String, dynamic>>> getVerifiedSubmissions(
+      String challengeId) {
+    return _firestore
+        .collection(_challengesCollection)
+        .doc(challengeId)
+        .collection('submissions')
+        .where('verified', isEqualTo: true)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+  }
+
+  Future<void> removeChallenge(String challengeId) async {
+    try {
+      await _firestore
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .delete();
+      debugPrint('Challenge deleted: challengeId=$challengeId');
+    } catch (e) {
+      debugPrint('Error deleting challenge: $e');
+      rethrow;
+    }
   }
 }
