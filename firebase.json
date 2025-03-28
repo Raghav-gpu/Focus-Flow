@@ -1,0 +1,38 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "focusflow-e2543",
+          "appId": "1:164391391883:android:6b1f05819e54bc9b6e7a8e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "focusflow-e2543",
+          "configurations": {
+            "android": "1:164391391883:android:6b1f05819e54bc9b6e7a8e",
+            "ios": "1:164391391883:ios:badc673ae1d7c03d6e7a8e",
+            "macos": "1:164391391883:ios:badc673ae1d7c03d6e7a8e",
+            "web": "1:164391391883:web:7d94629fa0f7eab16e7a8e",
+            "windows": "1:164391391883:web:4288d9941d987de36e7a8e"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}
