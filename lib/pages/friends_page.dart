@@ -31,7 +31,9 @@ class _FriendsPageState extends State<FriendsPage> {
           backgroundColor: Theme.of(context).primaryColor,
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Friends'),
+              Tab(
+                text: 'Friends',
+              ),
               Tab(text: 'Challenges'),
             ],
             indicatorColor: Colors.white,

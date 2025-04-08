@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:focus/services/task_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/cupertino.dart'
+    show CupertinoButton, CupertinoDatePicker, CupertinoDatePickerMode;
 
 class AddTaskScreen extends StatefulWidget {
   final String userId;
@@ -18,7 +20,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _selectedTime = TimeOfDay.now();
+  DateTime _startTime = DateTime.now();
+  DateTime _endTime = DateTime.now().add(const Duration(minutes: 30));
   String _priority = 'Medium';
   final TaskService _taskService = TaskService();
 
@@ -41,20 +44,34 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
 
     if (_titleController.text.isNotEmpty) {
-      final combinedDateTime = DateTime(
+      final startDateTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
+        _startTime.hour,
+        _startTime.minute,
       );
+      final endDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+      if (endDateTime.isBefore(startDateTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End time must be after start time')),
+        );
+        return;
+      }
       debugPrint(
-          'Saving task: Title: ${_titleController.text}, DateTime: $combinedDateTime, UserID: ${widget.userId}');
+          'Saving task: Title: ${_titleController.text}, Start: $startDateTime, End: $endDateTime, UserID: ${widget.userId}');
       try {
         await _taskService.addTask(widget.userId, {
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
-          'date': Timestamp.fromDate(combinedDateTime),
+          'start': Timestamp.fromDate(startDateTime),
+          'end': Timestamp.fromDate(endDateTime),
           'priority': _priority,
           'status': 'To Do',
         });
@@ -94,29 +111,105 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         );
       },
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _startTime = DateTime(picked.year, picked.month, picked.day,
+            _startTime.hour, _startTime.minute);
+        _endTime = DateTime(picked.year, picked.month, picked.day,
+            _endTime.hour, _endTime.minute);
+      });
+    }
   }
 
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blueAccent,
-              onPrimary: Colors.white,
-              surface: Colors.black87,
-              onSurface: Colors.white70,
-            ),
-            dialogBackgroundColor: Colors.black.withOpacity(0.9),
+  Future<void> _pickTime(bool isStart) async {
+    final initialTime = isStart ? _startTime : _endTime;
+
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      DateTime? picked;
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: 350,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.9),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) setState(() => _selectedTime = picked);
+          child: Column(
+            children: [
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: initialTime,
+                  use24hFormat: false,
+                  onDateTimeChanged: (dateTime) {
+                    picked = dateTime;
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: CupertinoButton(
+                  child: const Text('Done',
+                      style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (picked != null) {
+        setState(() {
+          if (isStart) {
+            _startTime = DateTime(_selectedDate.year, _selectedDate.month,
+                _selectedDate.day, picked!.hour, picked!.minute);
+          } else {
+            _endTime = DateTime(_selectedDate.year, _selectedDate.month,
+                _selectedDate.day, picked!.hour, picked!.minute);
+          }
+        });
+      }
+    } else {
+      // Android: Circular clock picker
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(initialTime),
+        builder: (context, child) {
+          return Theme(
+            data: ThemeData.dark().copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: Colors.blueAccent,
+                onPrimary: Colors.white,
+                surface: Colors.black87,
+                onSurface: Colors.white70,
+              ),
+              dialogBackgroundColor: Colors.black.withOpacity(0.9),
+              timePickerTheme: TimePickerThemeData(
+                backgroundColor: Colors.black87,
+                hourMinuteTextColor: Colors.white,
+                dialHandColor: Colors.blueAccent,
+                dialTextColor: Colors.white70,
+                entryModeIconColor: Colors.white,
+              ),
+            ),
+            child: child!,
+          );
+        },
+      );
+      if (picked != null) {
+        setState(() {
+          if (isStart) {
+            _startTime = DateTime(_selectedDate.year, _selectedDate.month,
+                _selectedDate.day, picked.hour, picked.minute);
+          } else {
+            _endTime = DateTime(_selectedDate.year, _selectedDate.month,
+                _selectedDate.day, picked.hour, picked.minute);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -139,7 +232,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           children: [
             TextField(
               controller: _titleController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 18),
               decoration: InputDecoration(
                 labelText: 'Title',
                 labelStyle: const TextStyle(color: Colors.white70),
@@ -156,7 +249,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             const SizedBox(height: 20),
             TextField(
               controller: _descriptionController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Description',
@@ -176,7 +269,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               onTap: _pickDate,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -185,39 +278,58 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Date: ${DateFormat.yMMMd().format(_selectedDate)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      DateFormat('EEEE, MMMM d').format(_selectedDate),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
                     ),
-                    const Icon(Icons.calendar_today, color: Colors.white70),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: _pickTime,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Time: ${_selectedTime.format(context)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    const Icon(Icons.access_time, color: Colors.white70),
+                    const Icon(Icons.calendar_today,
+                        color: Colors.white70, size: 20),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => _pickTime(true),
+                    child: Text(
+                      TimeOfDay.fromDateTime(_startTime).format(context),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const Text(
+                    '–',
+                    style: TextStyle(color: Colors.white70, fontSize: 18),
+                  ),
+                  GestureDetector(
+                    onTap: () => _pickTime(false),
+                    child: Text(
+                      TimeOfDay.fromDateTime(_endTime).format(context),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -252,10 +364,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 child: const Text(
                   'Save Task',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
               ),
             ),

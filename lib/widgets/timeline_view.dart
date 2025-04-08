@@ -6,20 +6,20 @@ import 'timeline_event.dart';
 class TimelineView extends StatelessWidget {
   final List<Map<String, dynamic>> tasks;
   final VoidCallback onTaskUpdated;
-  final String userId; // Add userId parameter
+  final String userId;
 
   const TimelineView({
     Key? key,
     required this.tasks,
     required this.onTaskUpdated,
-    required this.userId, // Make it required
+    required this.userId,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final sortedTasks = List.from(tasks)
-      ..sort(
-          (a, b) => (a['date'] as Timestamp).compareTo(b['date'] as Timestamp));
+      ..sort((a, b) =>
+          (a['start'] as Timestamp).compareTo(b['start'] as Timestamp));
 
     return AnimationLimiter(
       child: ListView.builder(
@@ -34,7 +34,7 @@ class TimelineView extends StatelessWidget {
               verticalOffset: 50.0,
               child: FadeInAnimation(
                 child: TimelineEvent(
-                  userId: userId, // Pass userId to TimelineEvent
+                  userId: userId,
                   task: task,
                   onTaskUpdated: onTaskUpdated,
                 ),

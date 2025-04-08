@@ -1,14 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:focus/pages/calendar_task_page.dart';
 import 'package:focus/pages/chat_page.dart';
 import 'package:focus/pages/friends_page.dart';
+import 'package:focus/pages/survey_screen.dart';
 import 'package:focus/services/streak_service.dart';
 import 'package:focus/services/task_service.dart';
 import 'package:focus/services/challenge_service.dart';
 import 'package:focus/services/friend_service.dart';
-import 'package:focus/widgets/progress_bar.dart'; // Import XPBar
+import 'package:focus/widgets/progress_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -81,7 +83,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                   'assets/animations/level_animation.json',
                   width: 150,
                   height: 150,
-                  repeat: true, // Changed to true to repeat the animation
+                  repeat: true,
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -96,10 +98,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                 const SizedBox(height: 10),
                 const Text(
                   "Keep up the progress—amazing work! 🚀",
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -125,7 +124,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
   }
 
   double _calculateGreetingFontSize(String text, double screenWidth) {
-    const double maxFontSize = 0.08;
+    const double maxFontSize = 0.06; // Reduced from 0.08
     const double minFontSize = 0.04;
     const double baseCharWidth = 10;
 
@@ -166,7 +165,17 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
               return const Center(child: CircularProgressIndicator());
             }
             if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(child: Text('User data not found'));
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SurveyScreen(userId: user!.uid),
+                    ),
+                  );
+                }
+              });
+              return const Center(child: CircularProgressIndicator());
             }
 
             final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -273,7 +282,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      padding: EdgeInsets.all(screenWidth * 0.04),
+      padding: EdgeInsets.all(screenWidth * 0.03), // Consistent padding
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -314,7 +323,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                       Icon(
                         Icons.local_fire_department,
                         color: Colors.orangeAccent,
-                        size: screenWidth * 0.05,
+                        size: screenWidth * 0.06, // Consistent icon size
                       ),
                       SizedBox(width: screenWidth * 0.01),
                       Text(
@@ -356,7 +365,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
             Text(
               "Today's Tasks",
               style: TextStyle(
-                fontSize: screenWidth * 0.045,
+                fontSize: screenWidth * 0.055, // Increased from 0.045
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -373,13 +382,13 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     "View All",
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      color: Colors.blueAccent,
+                      color: Colors.white38,
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
                     size: screenWidth * 0.04,
-                    color: Colors.blueAccent,
+                    color: Colors.white38,
                   ),
                 ],
               ),
@@ -392,65 +401,75 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: taskService.getTasks(userId).map(
                   (tasks) => tasks.where((task) {
-                    final taskDate = (task['date'] as Timestamp).toDate();
-                    return taskDate.isAfter(startOfToday) &&
-                        taskDate.isBefore(endOfToday) &&
-                        task['status'] != 'Done';
+                    final taskStart = (task['start'] as Timestamp).toDate();
+                    final isCompleted = task['status'] == 'Completed' ||
+                        task['completedAt'] != null;
+                    return taskStart.isAfter(startOfToday) &&
+                        taskStart.isBefore(endOfToday) &&
+                        !isCompleted;
                   }).toList()
                     ..sort((a, b) =>
-                        (a['date'] as Timestamp).compareTo(b['date'])),
+                        (a['start'] as Timestamp).compareTo(b['start'])),
                 ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => CalendarTaskPage(userId: userId)),
-                  ),
-                  child: Container(
-                    width: screenWidth * 0.7,
-                    margin: EdgeInsets.only(right: screenWidth * 0.03),
-                    padding: EdgeInsets.all(screenWidth * 0.04),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.2),
-                          blurRadius: 8,
-                        ),
-                      ],
+                return Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              CalendarTaskPage(userId: userId)),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.add_task,
-                          color: Colors.blueAccent,
-                          size: screenWidth * 0.06,
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-                        Text(
-                          "Add Task",
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                    child: Container(
+                      width: screenWidth * 0.85,
+                      height: screenHeight * 0.15,
+                      padding: EdgeInsets.all(
+                          screenWidth * 0.03), // Consistent padding
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.2),
+                            blurRadius: 8,
                           ),
-                        ),
-                        Text(
-                          "Tap to create a new task",
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: Colors.grey[400],
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add_task,
+                            color: Colors.blueAccent,
+                            size: screenWidth * 0.09, // Consistent icon size
                           ),
-                        ),
-                      ],
+                          SizedBox(height: screenHeight * 0.01),
+                          Text(
+                            "Add Task",
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            "Tap to create a new task",
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.grey[400],
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -462,15 +481,17 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                 itemCount: tasks.length,
                 itemBuilder: (context, index) {
                   final task = tasks[index];
-                  final taskDate = (task['date'] as Timestamp).toDate();
-                  final isCompleted = task['status'] == 'Done';
+                  final taskStart = (task['start'] as Timestamp).toDate();
+                  final isCompleted = task['status'] == 'Completed' ||
+                      task['completedAt'] != null;
                   final priority = task['priority'] ?? 'Low';
                   final priorityColor = _getPriorityColor(priority);
 
                   return Container(
                     width: screenWidth * (screenWidth > 600 ? 0.45 : 0.7),
                     margin: EdgeInsets.only(right: screenWidth * 0.03),
-                    padding: EdgeInsets.all(screenWidth * 0.04),
+                    padding: EdgeInsets.all(
+                        screenWidth * 0.03), // Consistent padding
                     decoration: BoxDecoration(
                       color: Colors.grey[900],
                       borderRadius: BorderRadius.circular(12),
@@ -485,7 +506,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                           children: [
                             Flexible(
                               child: Text(
-                                DateFormat('h:mm a').format(taskDate),
+                                DateFormat('h:mm a').format(taskStart),
                                 style: TextStyle(
                                   fontSize: screenWidth * 0.035,
                                   color: Colors.grey[400],
@@ -572,6 +593,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
 
   Widget _buildGenerateScheduleCard(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -579,7 +601,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(screenWidth * 0.04),
+        padding: EdgeInsets.all(screenWidth * 0.03), // Consistent padding
         margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
         decoration: BoxDecoration(
           color: Colors.grey[900],
@@ -605,10 +627,15 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                       color: Colors.blue.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.smart_toy,
-                      color: Colors.blueAccent,
-                      size: screenWidth * 0.06,
+                    child: SvgPicture.asset(
+                      'assets/images/Assistant.svg',
+                      width: screenWidth *
+                          0.06, // Matches the consistent icon size
+                      height: screenWidth * 0.06,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.blueAccent, // Matches the original icon color
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                   SizedBox(width: screenWidth * 0.03),
@@ -706,7 +733,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
             Text(
               "Your Challenges",
               style: TextStyle(
-                fontSize: screenWidth * 0.045,
+                fontSize: screenWidth * 0.055, // Increased from 0.045
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -715,8 +742,8 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const FriendsPage(initialTabIndex: 1),
-                ),
+                    builder: (context) =>
+                        const FriendsPage(initialTabIndex: 1)),
               ),
               child: Row(
                 children: [
@@ -724,13 +751,13 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     "All Challenges",
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      color: Colors.blueAccent,
+                      color: Colors.white38,
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
                     size: screenWidth * 0.04,
-                    color: Colors.blueAccent,
+                    color: Colors.white38,
                   ),
                 ],
               ),
@@ -739,7 +766,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
         ),
         SizedBox(height: screenHeight * 0.015),
         SizedBox(
-          height: screenHeight * 0.15,
+          height: screenHeight * 0.20, // Increased from 0.15 to utilize space
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: _challengeService.getChallenges(userId),
             builder: (context, snapshot) {
@@ -748,18 +775,67 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Center(
-                  child: Text(
-                    "No challenges yet!",
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.04,
-                      color: Colors.grey[400],
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              const FriendsPage(initialTabIndex: 1)),
+                    ),
+                    child: Container(
+                      width: screenWidth * 0.85,
+                      height: screenHeight * 0.20,
+                      padding: EdgeInsets.all(
+                          screenWidth * 0.03), // Consistent padding
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.2),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.emoji_events,
+                            color: Colors.blueAccent,
+                            size: screenWidth * 0.15, // Consistent icon size
+                          ),
+                          SizedBox(height: screenHeight * 0.01),
+                          Text(
+                            "Challenge Friends",
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            "Challenge your friends to exciting tasks!",
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.grey[400],
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
               }
 
               final challenges = snapshot.data!
-                  .where((c) => ['pending', 'active'].contains(c['status']))
+                  .where(
+                      (c) => c['status'] == 'active') // Only active challenges
                   .toList();
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -775,6 +851,15 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                           : challenge['receiverProgress']) as int? ??
                       0;
                   final durationDays = challenge['durationDays'] as int? ?? 1;
+                  final endDateString = challenge['endDate'] as String?;
+                  final endDate = endDateString != null
+                      ? DateTime.tryParse(endDateString) ?? DateTime.now()
+                      : DateTime.now();
+                  final daysLeft = endDate
+                      .difference(DateTime.now())
+                      .inDays
+                      .clamp(
+                          0, durationDays); // Ensure non-negative, max duration
                   final title = challenge['title'] as String? ??
                       challenge['description'] as String? ??
                       'No Title';
@@ -786,14 +871,14 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            const FriendsPage(initialTabIndex: 1),
-                      ),
+                          builder: (context) =>
+                              const FriendsPage(initialTabIndex: 1)),
                     ),
                     child: Container(
                       width: screenWidth * (screenWidth > 600 ? 0.45 : 0.7),
                       margin: EdgeInsets.only(right: screenWidth * 0.03),
-                      padding: EdgeInsets.all(screenWidth * 0.04),
+                      padding: EdgeInsets.all(
+                          screenWidth * 0.03), // Consistent padding
                       decoration: BoxDecoration(
                         color: Colors.grey[900],
                         borderRadius: BorderRadius.circular(12),
@@ -812,7 +897,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                             child: Icon(
                               Icons.emoji_events,
                               color: Colors.white,
-                              size: screenWidth * 0.05,
+                              size: screenWidth * 0.06, // Consistent icon size
                             ),
                           ),
                           SizedBox(width: screenWidth * 0.03),
@@ -838,7 +923,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                                       ),
                                     ),
                                     Text(
-                                      "$durationDays days",
+                                      "$daysLeft days left",
                                       style: TextStyle(
                                         fontSize: screenWidth * 0.035,
                                         color: Colors.blueAccent,
@@ -861,7 +946,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                                     );
                                   },
                                 ),
-                                SizedBox(height: screenHeight * 0.005),
+                                SizedBox(height: screenHeight * 0.01),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -869,21 +954,21 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                                     Text(
                                       "Progress",
                                       style: TextStyle(
-                                        fontSize: screenWidth * 0.03,
+                                        fontSize: screenWidth * 0.035,
                                         color: Colors.grey[400],
                                       ),
                                     ),
                                     Text(
                                       "$myProgress/$durationDays",
                                       style: TextStyle(
-                                        fontSize: screenWidth * 0.03,
+                                        fontSize: screenWidth * 0.035,
                                         color: Colors.grey[400],
                                       ),
                                     ),
                                   ],
                                 ),
                                 SizedBox(
-                                  height: screenHeight * 0.01,
+                                  height: screenHeight * 0.015,
                                   child: LinearProgressIndicator(
                                     value: myProgress / durationDays,
                                     backgroundColor: Colors.grey[800],

@@ -17,9 +17,8 @@ class TimelineEvent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final taskTime = (task['date'] as Timestamp).toDate();
-    // Set opacity: 0.7 for "Done", 1.0 for others
-    final cardOpacity = task['status'] == 'Done' ? 0.58 : 1.0;
+    final startTime = (task['start'] as Timestamp).toDate();
+    final cardOpacity = task['status'] == 'Completed' ? 0.58 : 1.0;
 
     return GestureDetector(
       onTap: () {
@@ -42,11 +41,11 @@ class TimelineEvent extends StatelessWidget {
             SizedBox(
               width: 60,
               child: Opacity(
-                opacity: cardOpacity, // Fade time for "Done" tasks
+                opacity: cardOpacity,
                 child: Text(
-                  DateFormat.Hm().format(taskTime),
+                  DateFormat.jm().format(startTime), // e.g., "11:23 AM"
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.blueGrey[300],
                   ),
@@ -55,11 +54,10 @@ class TimelineEvent extends StatelessWidget {
             ),
             Expanded(
               child: Opacity(
-                opacity: cardOpacity, // Fade entire card for "Done" tasks
+                opacity: cardOpacity,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _getStatusColor(task['status'])
-                        .withOpacity(0.15), // Status-based background
+                    color: _getStatusColor(task['status']).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _getStatusColor(task['status']).withOpacity(0.4),
@@ -108,11 +106,10 @@ class TimelineEvent extends StatelessWidget {
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
-                            decoration: task['status'] == 'Done'
+                            decoration: task['status'] == 'Completed'
                                 ? TextDecoration.lineThrough
-                                : null, // Strikethrough for "Done"
-                            decorationColor: Colors.green[400]!
-                                .withOpacity(0.9), // Green strikethrough
+                                : null,
+                            decorationColor: Colors.grey.withOpacity(0.9),
                             decorationThickness: 5,
                           ),
                         ),
@@ -130,12 +127,11 @@ class TimelineEvent extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'To Do':
-        return Colors.red[400]!;
-      case 'Doing':
-        return Colors.blue[400]!;
-      case 'Done':
-        return Colors.green[400]!;
+      case 'Pending':
+      case 'To Do': // Add 'To Do' as valid status
+        return Colors.blueAccent;
+      case 'Completed':
+        return Colors.grey;
       default:
         return Colors.grey;
     }
@@ -144,11 +140,11 @@ class TimelineEvent extends StatelessWidget {
   Color _getPriorityColor(String priority) {
     switch (priority) {
       case 'High':
-        return Colors.red[400]!;
+        return Colors.redAccent;
       case 'Medium':
-        return Colors.orange[400]!;
+        return Colors.orangeAccent;
       case 'Low':
-        return Colors.green[400]!;
+        return Colors.greenAccent;
       default:
         return Colors.grey;
     }

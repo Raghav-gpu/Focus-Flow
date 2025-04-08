@@ -54,27 +54,36 @@ const challengeReminderMessages = [
   { title: 'Pic Power! 💥', body: (username, title) => `${username}, unleash your ${title} photo now!` },
 ];
 
-// --- Task Notifications ---
-
+// Updated checkUpcomingTasks with new task structure
 exports.checkUpcomingTasks = onSchedule('every 5 minutes', async () => {
   const now = new Date();
   const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000);
   const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
 
   const tasksSnapshot = await db.collectionGroup('tasks')
-    .where('date', '>=', Timestamp.fromDate(tenMinutesFromNow))
-    .where('date', '<=', Timestamp.fromDate(fifteenMinutesFromNow))
-    .where('notificationSent', '!=', true)
-    .orderBy('date')
+    .where('start', '>=', Timestamp.fromDate(tenMinutesFromNow))
+    .where('start', '<=', Timestamp.fromDate(fifteenMinutesFromNow))
+    .where('notificationSent', '==', false) // Changed to '==' since we only want unsent notifications
+    .orderBy('start')
     .get();
 
-  if (tasksSnapshot.empty) return null;
+  if (tasksSnapshot.empty) {
+    console.log('No upcoming tasks found within the 10-15 minute window.');
+    return null;
+  }
 
   const notifications = [];
   for (const doc of tasksSnapshot.docs) {
     const taskData = doc.data();
-    const userId = doc.ref.parent.parent.id;
+    const userId = doc.ref.parent.parent.id; // Parent of 'tasks' is the user doc
     const taskId = doc.id;
+
+    // Skip if task is completed
+    if (taskData.status === 'Completed' || taskData.completedAt !== null) {
+      console.log(`Skipping notification for completed task ${taskId} for user ${userId}`);
+      continue;
+    }
+
     const username = await getUsername(userId);
     const randomIndex = Math.floor(Math.random() * taskReminderMessages.length);
     const message = taskReminderMessages[randomIndex];
@@ -102,8 +111,9 @@ exports.checkUpcomingTasks = onSchedule('every 5 minutes', async () => {
   }
 
   await Promise.all(notifications);
+  console.log(`Processed ${notifications.length} notifications.`);
+  return null;
 });
-
 // --- Friend Request Notifications ---
 
 exports.notifyFriendRequest = onDocumentCreated('users/{receiverId}/friend_requests/{senderId}', async (event) => {
@@ -388,88 +398,64 @@ exports.notifyChallengeExited = onDocumentUpdated('challenges/{challengeId}', as
 
 exports.generateDailyTips = onSchedule('0 0 * * *', async () => { // Midnight UTC = 5:30 AM IST
   const now = new Date();
-  const dateStr = now.toISOString().split('T')[0].split('-').reverse().join(''); // DDMMYYYY
-  const weekday = now.toLocaleString('en-US', { weekday: 'long' });
-  const time = now.toISOString().split('T')[1].slice(0, 5); // HH:mm
+  const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  const dateStr = midnightUTC.toISOString().split('T')[0].split('-').reverse().join(''); // DDMMYYYY
+  const weekday = midnightUTC.toLocaleString('en-US', { weekday: 'long' });
+  const time = '00:00'; // Fixed to midnight UTC
+
+  console.log(`Generating tips for ${dateStr}`);
 
   const prompt = `Current date: ${dateStr}, Current day: ${weekday}, Current time: ${time}. Generate 3 unique, concise tips (max 15 words each) for focus and productivity tailored to today. Use a warm, motivating tone with 1 emoji per tip.`;
-  
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer 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',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.0-flash-001',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a warm, friendly assistant generating unique focus and productivity tips. Just give the tips and nothing else, be motivating and give really helpful tips for daily life productivity.',
-        },
-        { role: 'user', content: prompt },
-      ],
-    }),
-  });
 
-  const data = await response.json();
-  const tipsText = data.choices[0].message.content.trim();
-  const tips = tipsText.split('\n').map(tip => tip.replace(/^\d+\.\s*/, ''));
+  let tips = [];
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer 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',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-001',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a warm, friendly assistant generating unique focus and productivity tips. Just give the tips and nothing else, be motivating and give really helpful tips for daily life productivity.',
+          },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const tipsText = data.choices[0]?.message?.content?.trim() || '';
+    tips = tipsText.split('\n').map(tip => tip.replace(/^\d+\.\s*/, ''));
+  } catch (error) {
+    console.error(`Error fetching tips from OpenRouter: ${error.message}`);
+    tips = [
+      'Start small—tiny steps build big focus! 🌟',
+      'Clear your desk—less clutter, more clarity! 🧹',
+      'Take a break—refresh for sharper focus! ☕',
+    ];
+  }
 
   const tipDoc = {
     tip1: tips[0] || 'Start small—tiny steps build big focus! 🌟',
     tip2: tips[1] || 'Clear your desk—less clutter, more clarity! 🧹',
     tip3: tips[2] || 'Take a break—refresh for sharper focus! ☕',
-    timestamp: Timestamp.fromDate(now),
+    timestamp: Timestamp.fromDate(midnightUTC), // Fixed to midnight UTC
   };
 
-  await db.collection('tips').doc(dateStr).set(tipDoc);
-  console.log(`Generated tips for ${dateStr}:`, tipDoc);
-
-  const usersSnapshot = await db.collection('users').get();
-  if (usersSnapshot.empty) {
-    console.log('No users found for daily tips');
-    return;
-  }
-
-  const times = [
-    { hour: 3, tip: 'tip1', number: '1' },  // 3:00 AM UTC = 9 AM IST
-    { hour: 8, tip: 'tip2', number: '2' },  // 8:00 AM UTC = 2 PM IST
-    { hour: 13, tip: 'tip3', number: '3' }, // 1:00 PM UTC = 7 PM IST
-  ];
-
-  for (const { hour, tip, number } of times) {
-    const scheduledTime = new Date(now);
-    scheduledTime.setUTCHours(hour, 0, 0, 0);
-    if (scheduledTime < now) scheduledTime.setDate(scheduledTime.getDate() + 1);
-
-    const delayMs = scheduledTime - now;
-    setTimeout(async () => {
-      const notifications = [];
-      for (const userDoc of usersSnapshot.docs) {
-        const userId = userDoc.id;
-        const payload = {
-          notification: {
-            title: `Focus Tip #${number}`,
-            body: tipDoc[tip],
-          },
-          data: {
-            type: 'daily_tip',
-            tipNumber: number,
-            date: dateStr,
-          },
-          topic: userId,
-        };
-
-        notifications.push(
-          messaging.send(payload)
-            .then(() => console.log(`Tip #${number} sent to ${userId}`))
-            .catch(error => console.error(`Error sending tip #${number} to ${userId}:`, error))
-        );
-      }
-      await Promise.all(notifications);
-      console.log(`Sent tip #${number} to ${usersSnapshot.size} users`);
-    }, delayMs);
+  try {
+    await db.collection('tips').doc(dateStr).set(tipDoc);
+    console.log(`Generated tips for ${dateStr}:`, tipDoc);
+  } catch (error) {
+    console.error(`Failed to save tips for ${dateStr}: ${error.message}`);
+    throw error; // Ensure failure is logged
   }
 });
 
@@ -663,6 +649,56 @@ exports.weeklyRecap = onSchedule('0 8 * * 0', async () => { // Every Sunday at 8
 
   await Promise.all(notifications);
 });
+
+// --- Custom Notifications ---
+
+exports.sendCustomNotification = onDocumentCreated('notifications/{notificationId}', async (event) => {
+  const notificationData = event.data.data();
+  const notificationId = event.params.notificationId;
+
+  // Check if notification has already been sent
+  if (notificationData.sent) {
+    console.log(`Notification ${notificationId} already sent, skipping.`);
+    return;
+  }
+
+  const { title, body, data = {} } = notificationData;
+
+  // Validate input
+  if (!title || !body || typeof title !== 'string' || typeof body !== 'string') {
+    console.error(`Invalid notification data for ${notificationId}:`, notificationData);
+    await event.data.ref.update({ sent: false, error: 'Invalid title or body' });
+    return;
+  }
+
+  console.log(`Sending custom notification ${notificationId}: ${title} - ${body}`);
+
+  const payload = {
+    notification: {
+      title: title,
+      body: body,
+    },
+    data: {
+      type: 'custom_notification',
+      notificationId: notificationId,
+      ...data, // Include any additional data fields
+    },
+    topic: 'all_users', // Send to the 'all_users' topic
+  };
+
+  try {
+    await messaging.send(payload);
+    console.log(`Custom notification ${notificationId} sent to all_users topic`);
+
+    // Mark notification as sent
+    await event.data.ref.update({ sent: true, sentAt: Timestamp.fromDate(new Date()) });
+    console.log(`Marked notification ${notificationId} as sent`);
+  } catch (error) {
+    console.error(`Error sending notification ${notificationId}:`, error);
+    await event.data.ref.update({ sent: false, error: error.message });
+  }
+});
+
 
 // --- Milestone Celebrations ---
 

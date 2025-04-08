@@ -28,6 +28,8 @@ class _ChatPageState extends State<ChatPage> {
   final ChatManager _chatManager = ChatManager();
   late stt.SpeechToText _speech;
   bool _isListening = false;
+  bool _isAddingSchedule = false; // Added for loading state
+  Map<int, bool> _scheduleAdded = {}; // Added to track completed schedules
 
   @override
   void initState() {
@@ -120,6 +122,7 @@ class _ChatPageState extends State<ChatPage> {
   void _startNewChat() {
     setState(() {
       _chatManager.clearChat();
+      _scheduleAdded.clear(); // Reset added schedules
     });
   }
 
@@ -186,16 +189,8 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _isListening = false);
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    _speech.stop();
-    super.dispose();
-  }
-
-  void _onAddToCalendar(
-      List<Map<String, dynamic>> scheduleRows, String userId) async {
+  void _onAddToCalendar(List<Map<String, dynamic>> scheduleRows, String userId,
+      int messageIndex) async {
     debugPrint('Adding to calendar: $scheduleRows');
     if (scheduleRows.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,11 +199,15 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
+    setState(() {
+      _isAddingSchedule = true; // Start loading
+    });
+
     for (var row in scheduleRows) {
       final dayString = row['day']!.trim();
-      final time = row['time']!.trim();
+      final time = row['time']!.trim(); // "HH:mm" from AI
       final activity = row['activity']!.trim();
-      final duration = row['duration']!.trim();
+      final duration = row['duration']!.trim(); // "X min" or "X hr"
       final priority = row['priority']!.trim();
       DateTime? taskDate = row['date'] as DateTime?;
 
@@ -217,34 +216,53 @@ class _ChatPageState extends State<ChatPage> {
         continue;
       }
 
+      // Parse start time (24-hour HH:mm)
       final timeParts = time.split(':');
-      if (timeParts.length < 2) {
+      if (timeParts.length != 2) {
         debugPrint('Invalid time format for "$time", skipping');
         continue;
       }
-
       final hour = int.tryParse(timeParts[0]);
-      final minuteParts = timeParts[1].split(' ');
-      final minute = int.tryParse(minuteParts[0]);
+      final minute = int.tryParse(timeParts[1]);
       if (hour == null || minute == null) {
         debugPrint(
             'Failed to parse time "$time" into hour and minute, skipping');
         continue;
       }
 
-      final period = minuteParts.length > 1 ? minuteParts[1].toUpperCase() : '';
-      final adjustedHour = period == 'PM' && hour != 12
-          ? hour + 12
-          : (period == 'AM' && hour == 12 ? 0 : hour);
+      final startTime =
+          DateTime(taskDate.year, taskDate.month, taskDate.day, hour, minute);
 
-      final startTime = DateTime(
-        taskDate.year,
-        taskDate.month,
-        taskDate.day,
-        adjustedHour,
-        minute,
-      );
-      debugPrint('Final startTime: $startTime');
+      // Parse duration and calculate end time
+      final durationParts = duration.split(' ');
+      if (durationParts.length != 2) {
+        debugPrint('Invalid duration format for "$duration", skipping');
+        continue;
+      }
+      final durationValue = int.tryParse(durationParts[0]);
+      final durationUnit = durationParts[1].toLowerCase();
+      if (durationValue == null) {
+        debugPrint('Failed to parse duration value "$duration", skipping');
+        continue;
+      }
+
+      DateTime endTime;
+      if (durationUnit.startsWith('min')) {
+        endTime = startTime.add(Duration(minutes: durationValue));
+      } else if (durationUnit.startsWith('hr')) {
+        endTime = startTime.add(Duration(hours: durationValue));
+      } else {
+        debugPrint('Unknown duration unit "$durationUnit", skipping');
+        continue;
+      }
+
+      if (endTime.isBefore(startTime)) {
+        debugPrint(
+            'End time $endTime is before start time $startTime, skipping');
+        continue;
+      }
+
+      debugPrint('Start: $startTime, End: $endTime');
 
       final parts = activity.split(':');
       final title = parts[0].trim();
@@ -254,19 +272,28 @@ class _ChatPageState extends State<ChatPage> {
         await _taskService.addTask(widget.userId, {
           'title': title,
           'description': description,
-          'date': Timestamp.fromDate(startTime),
+          'start': Timestamp.fromDate(startTime),
+          'end': Timestamp.fromDate(endTime),
           'priority': priority,
           'status': 'To Do',
         });
-        debugPrint('Task added successfully: $title at $startTime');
+        debugPrint(
+            'Task added successfully: $title from $startTime to $endTime');
       } catch (e) {
         debugPrint('Failed to add task: $title - Error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to add task: $e')),
         );
+        setState(() {
+          _isAddingSchedule = false; // Stop loading on error
+        });
         return;
       }
     }
+    setState(() {
+      _isAddingSchedule = false; // Stop loading on success
+      _scheduleAdded[messageIndex] = true; // Mark as added
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Schedule added to calendar!')),
     );
@@ -275,6 +302,14 @@ class _ChatPageState extends State<ChatPage> {
   void _onEditTask(String task, String time, String priority, String userId) {
     debugPrint(
         'Editing task: $task, Time: $time, Priority: $priority, UserID: $userId');
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    _speech.stop();
+    super.dispose();
   }
 
   @override
@@ -412,9 +447,13 @@ class _ChatPageState extends State<ChatPage> {
                                     : Alignment.centerLeft,
                                 child: MessageBubble(
                                   message: message,
-                                  onAddToCalendar: _onAddToCalendar,
+                                  onAddToCalendar: (rows, userId) =>
+                                      _onAddToCalendar(rows, userId, index),
                                   onEditTask: _onEditTask,
                                   userId: widget.userId,
+                                  isAddingSchedule: _isAddingSchedule,
+                                  isScheduleAdded:
+                                      _scheduleAdded[index] ?? false,
                                 ),
                               ),
                             );

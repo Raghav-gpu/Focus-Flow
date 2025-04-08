@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:focus/services/firebase_auth_methods.dart'; // Assuming this is your AuthService file
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,23 +13,14 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final AuthService _authService = AuthService();
-  final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  bool _notificationsEnabled = true;
-  String? _username; // Add a variable to hold the username
+  String? _username;
+  bool _showBanner = false;
 
   @override
   void initState() {
     super.initState();
-    _loadNotificationPreference();
-    _loadUsername(); // Fetch username when the page initializes
-  }
-
-  Future<void> _loadNotificationPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
-    });
+    _loadUsername();
+    _loadDiscordBannerStatus();
   }
 
   Future<void> _loadUsername() async {
@@ -37,247 +28,343 @@ class _SettingsPageState extends State<SettingsPage> {
     if (user != null) {
       final username = await _authService.getUsername(user.uid);
       setState(() {
-        _username =
-            username ?? 'User'; // Fallback to 'User' if username is null
+        _username = username ?? 'User';
       });
     }
   }
 
-  Future<void> _toggleNotifications(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notificationsEnabled', value);
-    setState(() {
-      _notificationsEnabled = value;
-    });
-    if (!value) {
-      await _notificationsPlugin.cancelAll();
+  Future<void> _loadDiscordBannerStatus() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('tips')
+          .doc('discord')
+          .get();
+      if (doc.exists) {
+        setState(() {
+          _showBanner = doc.data()?['banner'] ?? false;
+        });
+      }
+    } catch (e) {
+      print('Error loading banner status: $e');
+    }
+  }
+
+  Future<void> _launchDiscord() async {
+    final Uri url = Uri.parse('https://discord.gg/X7xQnXDD');
+    try {
+      print('Attempting to launch $url');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(url, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error launching Discord link: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final bool isLargeScreen = screenWidth > 600;
-    final double scaleFactor =
-        screenWidth / 375; // Based on standard mobile width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height; // Define here
+
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text('Please log in')));
+    }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.white54,
-            fontSize: 24 * scaleFactor.clamp(0.8, 1.2),
-          ),
-        ),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isLargeScreen ? 800 : 600),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(isLargeScreen ? 40 : 20 * scaleFactor),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: isLargeScreen ? 50 : 40 * scaleFactor,
-                      backgroundImage: user?.photoURL != null
-                          ? NetworkImage(user!.photoURL!)
-                          : const AssetImage('assets/images/user_pfp.png')
-                              as ImageProvider,
-                    ),
-                    SizedBox(width: 15 * scaleFactor),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _username ??
-                                'Loading...', // Display username or loading state
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: (isLargeScreen ? 24 : 22) * scaleFactor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            user?.email ?? 'No email',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16 * scaleFactor,
-                            ),
-                          ),
-                        ],
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(seconds: 1),
+              curve: Curves.easeInOut,
+              builder: (context, opacity, child) {
+                return Opacity(
+                  opacity: opacity,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/settings_page_bg.png'),
+                        fit: BoxFit.cover,
+                        opacity: 0.4,
                       ),
                     ),
+                  ),
+                );
+              },
+            ),
+            SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.06,
+                  vertical: screenHeight * 0.04,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_showBanner) _buildBannerHeader(context),
+                    SizedBox(height: screenHeight * 0.02),
+                    _buildProfileHeader(context, user),
+                    SizedBox(height: screenHeight * 0.04),
+                    _buildSettingsSection(context, 'Support', [
+                      _buildOption(
+                        Icons.support,
+                        'Terms of Service',
+                        () {},
+                        context,
+                      ),
+                      _buildOption(
+                        Icons.policy,
+                        'Privacy Policy',
+                        () {},
+                        context,
+                      ),
+                    ]),
+                    SizedBox(height: screenHeight * 0.06),
+                    _buildLogoutButton(context),
                   ],
                 ),
-                SizedBox(height: 30 * scaleFactor),
-                _sectionTitle('Account', scaleFactor),
-                _settingsOption(
-                  Icons.lock,
-                  'Reset Password',
-                  () {},
-                  scaleFactor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBannerHeader(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return GestureDetector(
+      onTap: _launchDiscord,
+      child: Container(
+        padding: EdgeInsets.all(screenWidth * 0.04),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF5865F2), Color(0xFF7289DA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Image.asset(
+              'assets/images/discord_black.png',
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+            ),
+            SizedBox(width: screenWidth * 0.03),
+            Expanded(
+              child: Text(
+                'Join our Discord Community',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.045,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                _settingsOption(
-                  Icons.delete,
-                  'Delete Account',
-                  () {},
-                  scaleFactor,
-                ),
-                Divider(color: Colors.grey, height: 20 * scaleFactor),
-                _sectionTitle('App Preferences', scaleFactor),
-                _toggleOption(
-                  Icons.notifications,
-                  'Notifications',
-                  _notificationsEnabled,
-                  _toggleNotifications,
-                  scaleFactor,
-                ),
-                _toggleOption(
-                  Icons.dark_mode,
-                  'Dark Mode',
-                  true,
-                  (value) {},
-                  scaleFactor,
-                ),
-                _settingsOption(
-                  Icons.language,
-                  'Change Language',
-                  () {},
-                  scaleFactor,
-                ),
-                Divider(color: Colors.grey, height: 20 * scaleFactor),
-                _sectionTitle('Support', scaleFactor),
-                _settingsOption(
-                  Icons.support,
-                  'Contact Support',
-                  () {},
-                  scaleFactor,
-                ),
-                _settingsOption(
-                  Icons.policy,
-                  'Privacy Policy',
-                  () {},
-                  scaleFactor,
-                ),
-                Divider(color: Colors.grey, height: 20 * scaleFactor),
-                _sectionTitle('Terms & Conditions', scaleFactor),
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0 * scaleFactor),
-                  child: Text(
-                    'By using this app, you agree to our Terms & Conditions.',
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward,
+              color: Colors.white,
+              size: screenWidth * 0.06,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context, User user) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: screenWidth * 0.07,
+          backgroundImage:
+              user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+          child: user.photoURL == null
+              ? Icon(
+                  Icons.person,
+                  size: screenWidth * 0.07,
+                  color: Colors.grey[400],
+                )
+              : null,
+          backgroundColor: Colors.grey[900],
+        ),
+        SizedBox(width: screenWidth * 0.04),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _username ?? 'Loading...',
                     style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14 * scaleFactor,
+                      fontSize: screenWidth * 0.06,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.blue.withOpacity(0.5),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                Divider(color: Colors.grey, height: 20 * scaleFactor),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () => _authService.logout(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 40 * scaleFactor,
-                        vertical: 15 * scaleFactor,
+                  if (!_showBanner)
+                    GestureDetector(
+                      onTap: _launchDiscord,
+                      child: Image.asset(
+                        'assets/images/discord_logo.png',
+                        width: screenWidth * 0.12,
+                        height: screenWidth * 0.12,
                       ),
                     ),
-                    child: Text(
-                      'Logout',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16 * scaleFactor,
-                      ),
-                    ),
-                  ),
+                ],
+              ),
+              SizedBox(
+                  height:
+                      screenWidth * 0.015), // Use screenWidth for consistency
+              Text(
+                user.email ?? 'No email',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.04,
+                  color: Colors.grey[400],
+                  fontStyle: FontStyle.italic,
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsSection(
+      BuildContext context, String title, List<Widget> options) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: screenWidth * 0.05,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            letterSpacing: 1.2,
+          ),
+        ),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+        Container(
+          padding: EdgeInsets.all(screenWidth * 0.04),
+          decoration: BoxDecoration(
+            color: Colors.grey[900]?.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(children: options),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOption(
+      IconData icon, String text, VoidCallback onTap, BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      splashColor: Colors.blue.withOpacity(0.4),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          vertical: screenWidth * 0.03,
+          horizontal: screenWidth * 0.02,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white70, size: screenWidth * 0.06),
+            SizedBox(width: screenWidth * 0.04),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: screenWidth * 0.045,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Center(
+      child: ElevatedButton(
+        onPressed: () => _authService.logout(context),
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Colors.redAccent, Colors.red],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.08,
+            vertical: screenWidth * 0.04,
+          ),
+          child: Text(
+            'Logout',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _sectionTitle(String title, double scaleFactor) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: 10 * scaleFactor), // Fix this to 'bottom'
-      child: Text(
-        title,
-        style: TextStyle(
-          color: Colors.white60,
-          fontSize: 20 * scaleFactor,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _settingsOption(
-    IconData icon,
-    String text,
-    VoidCallback onTap,
-    double scaleFactor,
-  ) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: Colors.white,
-        size: 24 * scaleFactor,
-      ),
-      title: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16 * scaleFactor,
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: EdgeInsets.symmetric(vertical: 4 * scaleFactor),
-    );
-  }
-
-  Widget _toggleOption(
-    IconData icon,
-    String text,
-    bool currentValue,
-    Function(bool) onChanged,
-    double scaleFactor,
-  ) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: Colors.white,
-        size: 24 * scaleFactor,
-      ),
-      title: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16 * scaleFactor,
-        ),
-      ),
-      trailing: Transform.scale(
-        scale: scaleFactor.clamp(0.8, 1.2),
-        child: Switch(
-          value: currentValue,
-          onChanged: onChanged,
-          activeColor: Colors.blueAccent,
-        ),
-      ),
-      contentPadding: EdgeInsets.symmetric(vertical: 4 * scaleFactor),
     );
   }
 }

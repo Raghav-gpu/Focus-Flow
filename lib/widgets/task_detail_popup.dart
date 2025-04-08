@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:focus/services/task_service.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'task_form.dart';
 
 class TaskDetailPopup extends StatefulWidget {
@@ -21,40 +22,61 @@ class TaskDetailPopup extends StatefulWidget {
 }
 
 class _TaskDetailPopupState extends State<TaskDetailPopup> {
-  final List<String> _statuses = ['To Do', 'Doing', 'Done'];
+  final List<String> _statuses = ['To Do', 'Completed'];
   final TaskService _taskService = TaskService();
+  bool _isUpdating = false;
 
   Future<void> _updateStatus(String newStatus) async {
+    if (_isUpdating) {
+      debugPrint('Update already in progress, skipping');
+      return;
+    }
+    debugPrint(
+        'Updating status to: $newStatus for task ID: ${widget.task['id']}');
+    setState(() => _isUpdating = true);
     try {
-      if (newStatus == 'Done') {
+      if (newStatus == 'Completed') {
+        debugPrint('Calling completeTask');
         await _taskService.completeTask(widget.userId, widget.task['id']);
       } else {
+        debugPrint('Calling updateTask with status: $newStatus');
         await _taskService.updateTask(
             widget.userId, widget.task['id'], {'status': newStatus});
+        debugPrint('updateTask completed successfully');
       }
+      debugPrint('Status update successful, notifying parent');
       widget.onTaskUpdated();
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update status: $e'),
-          backgroundColor: Colors.red[900],
-        ),
-      );
+      debugPrint('Failed to update status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: Colors.red[900],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+        debugPrint('Update complete, _isUpdating reset');
+      }
     }
   }
 
   Future<void> _deleteTask() async {
+    debugPrint('Deleting task ID: ${widget.task['id']}');
     try {
-      Navigator.pop(context);
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .collection('tasks')
-          .doc(widget.task['id'])
-          .delete();
+      await _taskService.deleteTask(widget.userId, widget.task['id']);
       widget.onTaskUpdated();
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
+      debugPrint('Failed to delete task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -67,6 +89,7 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   }
 
   void _editTask() {
+    debugPrint('Opening edit form for task ID: ${widget.task['id']}');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -83,10 +106,12 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   }
 
   void _retryFetch() {
+    debugPrint('Retrying task fetch');
     setState(() {});
   }
 
   Stream<Map<String, dynamic>> _getTaskStream(String userId, String taskId) {
+    debugPrint('Streaming task data for ID: $taskId');
     return _taskService.getTasks(userId).map((tasks) {
       return tasks.firstWhere((task) => task['id'] == taskId);
     });
@@ -98,7 +123,8 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(screenWidth * 0.05)),
       elevation: 0,
       backgroundColor: Colors.transparent,
       child: StreamBuilder<Map<String, dynamic>>(
@@ -109,23 +135,28 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
           }
 
           if (snapshot.hasError) {
+            debugPrint('Stream error: ${snapshot.error}');
             return _buildErrorState(
                 'Error: ${snapshot.error}', screenHeight, screenWidth);
           }
 
           if (!snapshot.hasData) {
+            debugPrint('No task data found');
             return _buildErrorState(
                 'Task not found', screenHeight, screenWidth);
           }
 
           final task = snapshot.data!;
-          final dueDate = (task['date'] as Timestamp).toDate();
+          debugPrint(
+              'Task data loaded: ${task['title']}, status: ${task['status']}');
+          final startTime = (task['start'] as Timestamp).toDate();
+          final endTime = (task['end'] as Timestamp).toDate();
           final priorityColor = _getPriorityColor(task['priority']);
 
           return Container(
             height: screenHeight * 0.8,
-            width: screenWidth * 0.85,
-            padding: const EdgeInsets.all(20),
+            width: screenWidth * 0.9, // Increased slightly for better fit
+            padding: EdgeInsets.all(screenWidth * 0.05),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -135,14 +166,14 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(screenWidth * 0.05),
               border:
                   Border.all(color: priorityColor.withOpacity(0.5), width: 1),
               boxShadow: [
                 BoxShadow(
                   color: priorityColor.withOpacity(0.3),
-                  spreadRadius: 2,
-                  blurRadius: 10,
+                  spreadRadius: screenWidth * 0.005,
+                  blurRadius: screenWidth * 0.025,
                 ),
               ],
             ),
@@ -158,15 +189,25 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
                           task['title'].toString()[0].toUpperCase() +
                               task['title'].toString().substring(1),
                           style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: priorityColor.withOpacity(0.7),
-                                blurRadius: 8,
-                              ),
-                            ],
+                            fontSize: screenWidth * 0.07,
+                            fontWeight: task['status'] == 'To Do'
+                                ? FontWeight.w800
+                                : FontWeight.w400,
+                            color: task['status'] == 'To Do'
+                                ? Colors.white
+                                : Colors.grey[400],
+                            decoration: task['status'] == 'Completed'
+                                ? TextDecoration.lineThrough
+                                : null,
+                            decorationColor: Colors.grey[400],
+                            shadows: task['status'] == 'To Do'
+                                ? [
+                                    Shadow(
+                                      color: priorityColor.withOpacity(0.7),
+                                      blurRadius: screenWidth * 0.02,
+                                    ),
+                                  ]
+                                : null,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -174,129 +215,124 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: EdgeInsets.all(screenWidth * 0.015),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.6),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.grey.withOpacity(0.5),
-                                blurRadius: 4,
+                                blurRadius: screenWidth * 0.01,
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.close,
                             color: Colors.white70,
-                            size: 20,
+                            size: screenWidth * 0.05,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: screenHeight * 0.02),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.calendar_today,
-                          size: 20, color: priorityColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat.yMMMMd().add_jm().format(dueDate),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w500,
+                          size: screenWidth * 0.05, color: priorityColor),
+                      SizedBox(width: screenWidth * 0.02),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DateFormat.yMMMMd().format(startTime),
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              '${DateFormat.jm().format(startTime)} - ${DateFormat.jm().format(endTime)}',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: screenHeight * 0.025),
                   Text(
                     'Status',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: screenWidth * 0.045,
                       fontWeight: FontWeight.w700,
                       color: Colors.white.withOpacity(0.9),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
+                  SizedBox(height: screenHeight * 0.01),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: _statuses.map((status) {
-                      return ChoiceChip(
-                        label: Text(
-                          status,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        selected: task['status'] == status,
-                        selectedColor: _getStatusColor(status).withOpacity(0.9),
-                        backgroundColor: Colors.black.withOpacity(0.6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                              color: _getStatusColor(status).withOpacity(0.7)),
-                        ),
-                        onSelected: (selected) {
-                          if (selected) _updateStatus(status);
-                        },
+                      return Padding(
+                        padding: EdgeInsets.only(right: screenWidth * 0.03),
+                        child: _buildStatusButton(
+                            status, task['status'], screenWidth),
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: screenHeight * 0.025),
                   Row(
                     children: [
-                      Icon(Icons.priority_high, size: 20, color: priorityColor),
-                      const SizedBox(width: 8),
+                      Icon(Icons.priority_high,
+                          size: screenWidth * 0.05, color: priorityColor),
+                      SizedBox(width: screenWidth * 0.02),
                       Text(
                         'Priority: ${task['priority']}',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: screenWidth * 0.04,
                           fontWeight: FontWeight.w600,
                           color: priorityColor,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: screenHeight * 0.025),
                   Text(
                     'Description',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: screenWidth * 0.045,
                       fontWeight: FontWeight.w700,
                       color: Colors.white.withOpacity(0.9),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: screenHeight * 0.01),
                   Text(
                     task['description']?.isEmpty ?? true
                         ? 'No description'
                         : task['description'],
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
                       color: Colors.white70,
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: screenHeight * 0.25),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // _buildCustomButton(
-                      //   text: 'Edit',
-                      //   icon: Icons.edit,
-                      //   color: Colors.blueAccent,
-                      //   onTap: _editTask,
-                      // ),
                       _buildCustomButton(
                         text: 'Delete',
                         icon: Icons.delete,
                         color: Colors.redAccent,
                         onTap: _deleteTask,
+                        screenWidth: screenWidth,
                       ),
                     ],
                   ),
@@ -312,15 +348,15 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   Widget _buildLoadingState(double height, double width) {
     return Container(
       height: height * 0.8,
-      width: width * 0.85,
+      width: width * 0.9,
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(width * 0.05),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.5),
-            spreadRadius: 2,
-            blurRadius: 12,
+            spreadRadius: width * 0.005,
+            blurRadius: width * 0.03,
           ),
         ],
       ),
@@ -336,15 +372,15 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   Widget _buildErrorState(String message, double height, double width) {
     return Container(
       height: height * 0.8,
-      width: width * 0.85,
+      width: width * 0.9,
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(width * 0.05),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.5),
-            spreadRadius: 2,
-            blurRadius: 12,
+            spreadRadius: width * 0.005,
+            blurRadius: width * 0.03,
           ),
         ],
       ),
@@ -352,23 +388,25 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline,
+                color: Colors.redAccent, size: width * 0.12),
+            SizedBox(height: height * 0.02),
             Text(
               message,
-              style: const TextStyle(
-                fontSize: 16,
+              style: TextStyle(
+                fontSize: width * 0.04,
                 color: Colors.white70,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: height * 0.025),
             _buildCustomButton(
               text: 'Retry',
               icon: Icons.refresh,
               color: Colors.blueAccent,
               onTap: _retryFetch,
+              screenWidth: width,
             ),
           ],
         ),
@@ -381,11 +419,15 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    required double screenWidth,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.05,
+          vertical: screenWidth * 0.03,
+        ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -395,24 +437,24 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(screenWidth * 0.03),
           boxShadow: [
             BoxShadow(
               color: color.withOpacity(0.5),
-              spreadRadius: 1,
-              blurRadius: 10,
+              spreadRadius: screenWidth * 0.002,
+              blurRadius: screenWidth * 0.025,
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            Icon(icon, color: Colors.white, size: screenWidth * 0.05),
+            SizedBox(width: screenWidth * 0.02),
             Text(
               text,
-              style: const TextStyle(
-                fontSize: 16,
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -423,14 +465,72 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
     );
   }
 
+  Widget _buildStatusButton(
+      String status, String currentStatus, double screenWidth) {
+    final statusColor = _getStatusColor(status);
+    final isSelected = status == currentStatus;
+    return GestureDetector(
+      onTap: () => _updateStatus(status),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.04,
+          vertical: screenWidth * 0.02,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? statusColor.withOpacity(0.9)
+              : Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(screenWidth * 0.05),
+          border: Border.all(color: statusColor.withOpacity(0.7)),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: statusColor.withOpacity(0.5),
+                    spreadRadius: screenWidth * 0.002,
+                    blurRadius: screenWidth * 0.012,
+                  ),
+                ]
+              : null,
+        ),
+        child: _isUpdating && !isSelected
+            ? SizedBox(
+                width: screenWidth * 0.05,
+                height: screenWidth * 0.05,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    status == 'To Do' ? Icons.play_arrow : Icons.check,
+                    color: Colors.white,
+                    size: screenWidth * 0.05,
+                  ),
+                  SizedBox(width: screenWidth * 0.01),
+                  Text(
+                    status,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: screenWidth * 0.035,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'To Do':
         return Colors.redAccent;
-      case 'Doing':
-        return Colors.blueAccent;
-      case 'Done':
-        return Colors.greenAccent;
+      case 'Completed':
+        return Colors.grey;
       default:
         return Colors.grey;
     }

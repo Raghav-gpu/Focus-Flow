@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:lottie/lottie.dart';
 
 class MessageBubble extends StatelessWidget {
   final Map<String, String> message;
   final Function(List<Map<String, dynamic>>, String) onAddToCalendar;
   final Function(String, String, String, String) onEditTask;
   final String userId;
+  final bool isAddingSchedule; // Added for loading state
+  final bool isScheduleAdded; // Added to track completion
 
   const MessageBubble({
     Key? key,
@@ -14,6 +17,8 @@ class MessageBubble extends StatelessWidget {
     required this.onAddToCalendar,
     required this.onEditTask,
     required this.userId,
+    required this.isAddingSchedule,
+    required this.isScheduleAdded,
   }) : super(key: key);
 
   List<Map<String, dynamic>> parseSchedule(String scheduleText) {
@@ -302,12 +307,33 @@ class MessageBubble extends StatelessWidget {
             const SizedBox(height: 8),
             buildScheduleTable(scheduleRows),
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => onAddToCalendar(scheduleRows, userId),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.withOpacity(0.8)),
-              child: const Text('Add to Calendar'),
-            ),
+            if (!isScheduleAdded) // Only show if not added
+              isAddingSchedule
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: Lottie.asset(
+                            'assets/animations/loading_animation.json',
+                            fit: BoxFit.contain,
+                            repeat: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Adding...',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ],
+                    )
+                  : ElevatedButton(
+                      onPressed: () => onAddToCalendar(scheduleRows, userId),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.withOpacity(0.8)),
+                      child: const Text('Add to Calendar'),
+                    ),
             if (postScheduleText.isNotEmpty) ...[
               const SizedBox(height: 8),
               _buildFormattedText(postScheduleText),
@@ -346,13 +372,13 @@ class MessageBubble extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isUser
-            ? Colors.green.withOpacity(0.2)
+            ? Colors.blue.withOpacity(0.2)
             : Colors.black.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: isUser
-                ? Colors.green.withOpacity(0.3)
+                ? Colors.blue.withOpacity(0.3)
                 : Colors.blue.withOpacity(0.5),
             spreadRadius: isUser ? 1 : 2,
             blurRadius: isUser ? 8 : 12,
