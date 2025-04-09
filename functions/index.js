@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
@@ -412,7 +414,7 @@ exports.generateDailyTips = onSchedule('0 0 * * *', async () => { // Midnight UT
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer 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',
+        'Authorization': 'Bearer ${process.env.OPENROUTER_API_KEY}',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
