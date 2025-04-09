@@ -750,3 +750,141 @@ exports.notifyMilestoneCelebration = onSchedule('every day 15:00', async () => {
 
   await Promise.all(notifications);
 });
+
+
+// Helper function to generate AI-crafted notification (no fallback)
+async function generateNotification(tip, timeOfDay, dateStr, weekday) {
+  const prompt = `
+    Context: You are crafting a push notification for FocusFlow, an app that boosts productivity and focus with a gamified, warm, and motivating tone. The app uses streaks, challenges, and daily tips to inspire users. Existing titles include "FocusFlow Morning Boost!", "Streak on Fire!", "Milestone Master!", with bodies like "Clear your desk—less clutter, more clarity! 🧹" or "Congrats, you beat ${username} in ${title}! 🏆". Use 1 emoji per title and body.
+
+    Current date: ${dateStr}, Day: ${weekday}, Time: ${timeOfDay} IST. Given the tip "${tip}", generate a concise push notification (title max 5 words, body max 15 words) related to FocusFlow’s theme of focus, productivity and gamification. Return JSON with "title" and "body" fields only.
+  `;
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer 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',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.0-flash-001',
+      messages: [
+        { role: 'system', content: 'You are a creative assistant for FocusFlow notifications.' },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const result = JSON.parse(data.choices[0]?.message?.content?.trim());
+  return {
+    title: result.title,
+    body: result.body,
+  };
+}
+
+// Send Tip 1 at 8 AM IST (2:30 AM UTC)
+exports.sendMorningTip = onSchedule('30 2 * * *', async () => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].split('-').reverse().join(''); // DDMMYYYY
+  const weekday = now.toLocaleString('en-US', { weekday: 'long' });
+
+  const tipDocRef = db.collection('tips').doc(dateStr);
+  const tipDoc = await tipDocRef.get();
+
+  if (!tipDoc.exists) {
+    console.log(`No tips found for ${dateStr}`);
+    return;
+  }
+
+  const tips = tipDoc.data();
+  const notification = await generateNotification(tips.tip1, '08:00', dateStr, weekday);
+
+  const payload = {
+    notification: {
+      title: notification.title,
+      body: notification.body,
+    },
+    data: {
+      type: 'daily_tip',
+      date: dateStr,
+      tipNumber: '1',
+    },
+    topic: 'all_users',
+  };
+
+  await messaging.send(payload);
+  console.log(`Sent morning tip for ${dateStr}: ${notification.title} - ${notification.body}`);
+});
+
+// Send Tip 2 at 12 PM IST (6:30 AM UTC)
+exports.sendMiddayTip = onSchedule('30 6 * * *', async () => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].split('-').reverse().join(''); // DDMMYYYY
+  const weekday = now.toLocaleString('en-US', { weekday: 'long' });
+
+  const tipDocRef = db.collection('tips').doc(dateStr);
+  const tipDoc = await tipDocRef.get();
+
+  if (!tipDoc.exists) {
+    console.log(`No tips found for ${dateStr}`);
+    return;
+  }
+
+  const tips = tipDoc.data();
+  const notification = await generateNotification(tips.tip2, '12:00', dateStr, weekday);
+
+  const payload = {
+    notification: {
+      title: notification.title,
+      body: notification.body,
+    },
+    data: {
+      type: 'daily_tip',
+      date: dateStr,
+      tipNumber: '2',
+    },
+    topic: 'all_users',
+  };
+
+  await messaging.send(payload);
+  console.log(`Sent midday tip for ${dateStr}: ${notification.title} - ${notification.body}`);
+});
+
+// Send Tip 3 at 6 PM IST (12:30 PM UTC)
+exports.sendEveningTip = onSchedule('30 12 * * *', async () => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].split('-').reverse().join(''); // DDMMYYYY
+  const weekday = now.toLocaleString('en-US', { weekday: 'long' });
+
+  const tipDocRef = db.collection('tips').doc(dateStr);
+  const tipDoc = await tipDocRef.get();
+
+  if (!tipDoc.exists) {
+    console.log(`No tips found for ${dateStr}`);
+    return;
+  }
+
+  const tips = tipDoc.data();
+  const notification = await generateNotification(tips.tip3, '18:00', dateStr, weekday);
+
+  const payload = {
+    notification: {
+      title: notification.title,
+      body: notification.body,
+    },
+    data: {
+      type: 'daily_tip',
+      date: dateStr,
+      tipNumber: '3',
+    },
+    topic: 'all_users',
+  };
+
+  await messaging.send(payload);
+  console.log(`Sent evening tip for ${dateStr}: ${notification.title} - ${notification.body}`);
+});

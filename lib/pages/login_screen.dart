@@ -224,100 +224,136 @@ class _LoginPageState extends State<LoginPage> {
   void _promptForGoogleSignIn() {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = screenWidth / 375;
+    bool isChecked = false; // State for checkbox
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(screenWidth * 0.06),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.grey[900]!.withOpacity(0.95),
-                Colors.black.withOpacity(0.95),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(screenWidth * 0.06),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.grey[900]!.withOpacity(0.95),
+                  Colors.black.withOpacity(0.95),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Sign In with Google',
-                style: TextStyle(
-                  fontSize: 22 * scaleFactor,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.blue.withOpacity(0.5),
-                      blurRadius: 8,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sign In with Google',
+                  style: TextStyle(
+                    fontSize: 22 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.blue.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.03),
+                Text(
+                  'To sync your tasks with Google Calendar:\n'
+                  '1. If you see "Google hasn’t verified this app", tap "Advanced".\n'
+                  '2. Then tap "Go to FocusFlow (unsafe)" at the bottom.\n'
+                  'We’re safe—just awaiting Google’s verification!',
+                  style: TextStyle(
+                    fontSize: 14 * scaleFactor,
+                    color: Colors.grey[400],
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.03),
+                // Checkbox for consent
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: isChecked,
+                      onChanged: (value) {
+                        setState(() {
+                          isChecked = value ?? false;
+                        });
+                      },
+                      activeColor: Colors.blueAccent,
+                      checkColor: Colors.white,
+                      side: BorderSide(color: Colors.grey[400]!),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'I agree to the Terms of Service and Privacy Policy. I understand that my personal data will be processed in accordance with applicable data protection laws (e.g., GDPR, CCPA) to provide and improve the FocusFlow service, including syncing with Google Calendar. You can withdraw consent at any time via account settings.',
+                        style: TextStyle(
+                          fontSize: 12 * scaleFactor,
+                          color: Colors.grey[400],
+                          height: 1.4,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(height: screenWidth * 0.03),
-              Text(
-                'To sync your tasks with Google Calendar:\n'
-                '1. If you see "Google hasn’t verified this app", tap "Advanced".\n'
-                '2. Then tap "Go to FocusFlow (unsafe)" at the bottom.\n'
-                'We’re safe—just awaiting Google’s verification!',
-                style: TextStyle(
-                  fontSize: 14 * scaleFactor,
-                  color: Colors.grey[400],
-                  height: 1.5,
-                ),
-              ),
-              SizedBox(height: screenWidth * 0.05),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _handleGoogleSignIn();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.blue, Colors.blueAccent],
+                SizedBox(height: screenWidth * 0.05),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: isChecked
+                        ? () {
+                            Navigator.pop(context);
+                            _handleGoogleSignIn();
+                          }
+                        : null, // Disabled until checkbox is checked
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.04,
-                      vertical: screenWidth * 0.025,
-                    ),
-                    child: Text(
-                      'Continue',
-                      style: TextStyle(
-                        fontSize: 16 * scaleFactor,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isChecked
+                              ? [Colors.blue, Colors.blueAccent]
+                              : [Colors.grey, Colors.grey],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.04,
+                        vertical: screenWidth * 0.025,
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
