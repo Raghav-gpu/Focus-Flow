@@ -19,14 +19,16 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:focus/widgets/navigation_wrapper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-// removed debug statement
+  if (kDebugMode) {
+    print('Background message: ${message.notification?.title}');
+  }
 }
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -42,9 +44,35 @@ void main() async {
   // Initialize local notifications
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
-  final InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  const DarwinInitializationSettings initializationSettingsIOS =
+      DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  final InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: initializationSettingsIOS,
+  );
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      if (kDebugMode) {
+        print('Local notification tapped: ${response.payload}');
+      }
+    },
+  );
+
+  // Create Android notification channel
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'focusflow_channel',
+    'FocusFlow Notifications',
+    importance: Importance.max,
+  );
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 
   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
   FirebaseAnalyticsObserver analyticsObserver =
@@ -59,7 +87,8 @@ void main() async {
   }
 
   runApp(
-      MyApp(analyticsObserver: analyticsObserver, navigatorKey: navigatorKey));
+    MyApp(analyticsObserver: analyticsObserver, navigatorKey: navigatorKey),
+  );
 }
 
 void _handleNotificationTap(
