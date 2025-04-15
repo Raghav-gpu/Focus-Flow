@@ -1,30 +1,32 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:focus/pages/login_screen.dart';
-import 'package:focus/pages/sign_up_screen.dart';
+
 import 'package:focus/pages/friends_page.dart';
 import 'package:focus/pages/survey_screen.dart';
 import 'package:focus/pages/home_screen.dart';
 import 'package:focus/pages/calendar_task_page.dart';
 import 'package:focus/pages/chat_page.dart';
 import 'package:focus/pages/setting_screen.dart';
-import 'package:focus/services/notification_service.dart';
+
 import 'package:focus/theme.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:focus/widgets/navigation_wrapper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('Handling a background message: ${message.messageId}');
+// removed debug statement
 }
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -33,6 +35,7 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await dotenv.load();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -49,6 +52,12 @@ void main() async {
 
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+  final prefs = await SharedPreferences.getInstance();
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    await prefs.setBool('is_fresh_start_${user.uid}', true);
+  }
+
   runApp(
       MyApp(analyticsObserver: analyticsObserver, navigatorKey: navigatorKey));
 }
@@ -61,8 +70,7 @@ void _handleNotificationTap(
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-
-    print('Handling tap for type: $type');
+// removed debug statement
     switch (type) {
       case 'friend_request':
       case 'friend_accepted':
@@ -129,28 +137,26 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _setupNotifications() async {
     await FirebaseMessaging.instance.requestPermission();
-    print('Requested notification permission');
+// removed debug statement
     NotificationSettings settings =
         await FirebaseMessaging.instance.getNotificationSettings();
-    print('Permission status: ${settings.authorizationStatus}');
-
+// removed debug statement
     await FirebaseMessaging.instance.subscribeToTopic('all_users');
-    print('Subscribed to all_users topic');
-
+// removed debug statement
     FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       if (user != null) {
         await FirebaseMessaging.instance.subscribeToTopic(user.uid);
-        print('Subscribed to user topic: ${user.uid}');
+// removed debug statement
       } else {
-        print('No user logged in, skipping user topic subscription');
+// removed debug statement
       }
     });
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Got a message whilst in the foreground!');
-      print('Message data: ${message.data}');
+// removed debug statement
+// removed debug statement
       if (message.notification != null) {
-        print('Message also contained a notification: ${message.notification}');
+// removed debug statement
         // Display foreground notification
         const AndroidNotificationDetails androidDetails =
             AndroidNotificationDetails(
@@ -181,7 +187,7 @@ class _MyAppState extends State<MyApp> {
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('App opened from background: ${message.notification?.title}');
+// removed debug statement
       _handleNotificationTap(message, widget.navigatorKey);
     });
   }
@@ -209,11 +215,11 @@ Widget authWrapper() {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       if (!authSnapshot.hasData) {
-        debugPrint('No user logged in, showing LoginPage');
+// removed debug statement
         return const LoginPage();
       }
       final userId = authSnapshot.data!.uid;
-      debugPrint('User logged in: $userId');
+// removed debug statement
       return StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
@@ -233,7 +239,7 @@ Widget authWrapper() {
 
           // Handle errors
           if (surveySnapshot.hasError) {
-            debugPrint('Survey snapshot error: ${surveySnapshot.error}');
+// removed debug statement
             return const Scaffold(
                 body: Center(child: Text('Error loading survey data')));
           }
@@ -256,7 +262,7 @@ Widget authWrapper() {
 
           debugPrint(
               'Survey completed for user $userId, showing MainAppWrapper');
-          return const MainAppWrapper();
+          return const NavigationWrapper();
         },
       );
     },
@@ -288,14 +294,14 @@ class _MainAppWrapperState extends State<MainAppWrapper> {
     try {
       _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
           (List<ConnectivityResult> results) {
-        debugPrint('Stream triggered with: $results');
+// removed debug statement
         _handleConnectivityChange(results);
       }, onError: (e) {
-        debugPrint('Stream error: $e');
+// removed debug statement
         _startFallbackTimer();
       });
     } catch (e) {
-      debugPrint('Failed to setup connectivity listener: $e');
+// removed debug statement
       _startFallbackTimer();
     }
   }
@@ -305,7 +311,7 @@ class _MainAppWrapperState extends State<MainAppWrapper> {
       _fallbackTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
         if (mounted) {
           _fallbackConnectivityCheck();
-          debugPrint('Fallback timer triggered');
+// removed debug statement
         }
       });
     }
@@ -314,10 +320,10 @@ class _MainAppWrapperState extends State<MainAppWrapper> {
   Future<void> _updateConnectivityStatus() async {
     try {
       final results = await Connectivity().checkConnectivity();
-      debugPrint('Initial connectivity check: $results');
+// removed debug statement
       await _handleConnectivityChange(results);
     } catch (e) {
-      debugPrint('Error checking connectivity: $e');
+// removed debug statement
       _fallbackConnectivityCheck();
     }
   }
@@ -359,10 +365,10 @@ class _MainAppWrapperState extends State<MainAppWrapper> {
     if (mounted && isOffline != !hasInternet) {
       setState(() {
         isOffline = !hasInternet;
-        debugPrint('Connectivity results: $results');
-        debugPrint('Has connection: $hasConnection');
-        debugPrint('Has actual internet: $hasInternet');
-        debugPrint('Is offline: $isOffline');
+// removed debug statement
+// removed debug statement
+// removed debug statement
+// removed debug statement
       });
     }
   }
@@ -382,7 +388,7 @@ class _MainAppWrapperState extends State<MainAppWrapper> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      debugPrint("No user in MainAppWrapper, redirecting to LoginPage");
+// removed debug statement
       return const LoginPage();
     }
 

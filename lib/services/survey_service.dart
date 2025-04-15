@@ -19,7 +19,7 @@ class SurveyService {
         return data;
       }).toList();
     } catch (e) {
-      debugPrint('Error fetching survey questions: $e');
+// removed debug statement
       return [];
     }
   }
@@ -35,7 +35,7 @@ class SurveyService {
           .get();
       return doc.exists && (doc.data()?['completed'] ?? false);
     } catch (e) {
-      debugPrint('Error checking survey completion: $e');
+// removed debug statement
       return false;
     }
   }
@@ -57,9 +57,9 @@ class SurveyService {
           }
         },
       }, SetOptions(merge: true));
-      debugPrint('Saved answer for $questionId: $answer');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error saving answer: $e');
+// removed debug statement
       throw e;
     }
   }
@@ -76,9 +76,9 @@ class SurveyService {
         'completed': true,
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('Survey marked as completed for user: $userId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error completing survey: $e');
+// removed debug statement
       throw e;
     }
   }

@@ -67,8 +67,8 @@ class _ChallengesTabState extends State<ChallengesTab>
                         challengeService: _challengeService,
                       );
                     } catch (e, stackTrace) {
-                      debugPrint('Error showing create challenge dialog: $e');
-                      debugPrint(stackTrace.toString());
+// removed debug statement
+// removed debug statement
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Failed to open dialog: $e')),
                       );
@@ -653,12 +653,12 @@ class _ChallengesTabState extends State<ChallengesTab>
         });
         await _challengeService.submitPhoto(
             _currentUser!.uid, challengeId, photo);
-        debugPrint('Photo submission succeeded for challengeId=$challengeId');
+// removed debug statement
         Navigator.pop(context);
         await _showUploadCompletedPopup();
       } catch (e) {
         Navigator.pop(context);
-        debugPrint('Photo submission failed: $e');
+// removed debug statement
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to submit photo: $e')));
       } finally {
@@ -762,10 +762,10 @@ class _ChallengesTabState extends State<ChallengesTab>
   Future<void> _completeChallenge(String challengeId) async {
     try {
       await _challengeService.completeChallenge(challengeId);
-      debugPrint('Challenge completion triggered for challengeId=$challengeId');
+// removed debug statement
       setState(() {});
     } catch (e) {
-      debugPrint('Error completing challenge in ChallengesTab: $e');
+// removed debug statement
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to complete challenge: $e')));
     }
@@ -774,10 +774,10 @@ class _ChallengesTabState extends State<ChallengesTab>
   Future<void> _removeChallenge(String challengeId) async {
     try {
       await _challengeService.removeChallenge(challengeId);
-      debugPrint('Challenge removed: challengeId=$challengeId');
+// removed debug statement
       setState(() {});
     } catch (e) {
-      debugPrint('Error removing challenge: $e');
+// removed debug statement
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to remove challenge: $e')));
     }

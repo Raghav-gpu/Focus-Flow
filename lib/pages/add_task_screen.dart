@@ -28,7 +28,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   void _saveTask() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      debugPrint('No authenticated user found');
+// removed debug statement
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No authenticated user found')),
       );
@@ -75,10 +75,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           'priority': _priority,
           'status': 'To Do',
         });
-        debugPrint('Task saved successfully');
+// removed debug statement
         Navigator.pop(context);
       } catch (e) {
-        debugPrint('Error saving task: $e');
+// removed debug statement
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save task: $e')),
         );

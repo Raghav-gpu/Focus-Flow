@@ -20,22 +20,22 @@ class GoogleCalendarService {
     try {
       final accessToken = await _getAccessToken();
       if (accessToken != null) {
-        debugPrint('GoogleCalendarService initialized with access token');
+// removed debug statement
       } else {
-        debugPrint('Failed to initialize: No access token');
+// removed debug statement
       }
     } catch (e) {
-      debugPrint('Initialization error: $e');
+// removed debug statement
     }
   }
 
   Future<String?> _getAccessToken() async {
     final accessToken = await _authService.getGoogleAccessToken();
     if (accessToken == null) {
-      debugPrint('No Google access token available');
+// removed debug statement
       return null;
     }
-    debugPrint('Retrieved Access Token: [redacted]');
+// removed debug statement
     return accessToken;
   }
 
@@ -49,7 +49,7 @@ class GoogleCalendarService {
       final dateTime = DateTime.parse(googleDateTime).toUtc();
       return Timestamp.fromDate(dateTime);
     } catch (e) {
-      debugPrint('Error parsing Google dateTime: $e');
+// removed debug statement
       return Timestamp.now();
     }
   }
@@ -59,7 +59,7 @@ class GoogleCalendarService {
     if (accessToken == null) throw Exception('No access token available');
     final url = Uri.parse(
         '$_baseUrl/calendars/$_calendarId/events?singleEvents=true&orderBy=startTime');
-    debugPrint('Fetching Google Events from: $url');
+// removed debug statement
     final response = await http.get(
       url,
       headers: {
@@ -67,11 +67,10 @@ class GoogleCalendarService {
         'Content-Type': 'application/json',
       },
     );
-
-    debugPrint('Fetch response: Status ${response.statusCode}');
+// removed debug statement
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      debugPrint('Fetched Google Events: ${data['items']?.length ?? 0} items');
+// removed debug statement
       return List<Map<String, dynamic>>.from(data['items'] ?? []);
     } else {
       debugPrint(
@@ -84,7 +83,7 @@ class GoogleCalendarService {
   Future<String?> addEventToGoogle(Map<String, dynamic> task) async {
     final accessToken = await _getAccessToken();
     if (accessToken == null) {
-      debugPrint('Cannot add event: No access token');
+// removed debug statement
       return null;
     }
     final url = Uri.parse('$_baseUrl/calendars/$_calendarId/events');
@@ -123,7 +122,7 @@ class GoogleCalendarService {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = jsonDecode(response.body);
-      debugPrint('Google Event added: ${data['id']}');
+// removed debug statement
       return data['id'];
     } else {
       debugPrint(
@@ -174,7 +173,7 @@ class GoogleCalendarService {
     );
 
     if (response.statusCode == 200) {
-      debugPrint('Google Event updated: $googleEventId');
+// removed debug statement
     } else {
       debugPrint(
           'Failed to update Google Event: ${response.statusCode} - ${response.body}');
@@ -186,8 +185,7 @@ class GoogleCalendarService {
     if (accessToken == null) return;
     final url =
         Uri.parse('$_baseUrl/calendars/$_calendarId/events/$googleEventId');
-    debugPrint('Sending DELETE request to Google Calendar: $url');
-
+// removed debug statement
     final response = await http.delete(
       url,
       headers: {
@@ -197,9 +195,9 @@ class GoogleCalendarService {
     );
 
     if (response.statusCode == 204) {
-      debugPrint('Google Event deleted successfully: $googleEventId');
+// removed debug statement
     } else if (response.statusCode == 404) {
-      debugPrint('Google Event already deleted or not found: $googleEventId');
+// removed debug statement
     } else {
       debugPrint(
           'Failed to delete Google Event: ${response.statusCode} - ${response.body}');
@@ -207,12 +205,11 @@ class GoogleCalendarService {
   }
 
   Future<void> syncFromGoogle(String userId) async {
-    debugPrint('Starting sync from Google Calendar for user: $userId');
+// removed debug statement
     try {
       final googleEvents = await fetchGoogleEvents();
       final firestoreTasks = await _taskService.getTasksSnapshot(userId);
-
-      debugPrint('Fetched ${googleEvents.length} events from Google Calendar');
+// removed debug statement
       final validEvents = googleEvents.where((e) {
         final isValid = (e['summary']?.toString().trim().isNotEmpty ?? false) &&
             e['start']?['dateTime'] != null &&
@@ -279,10 +276,9 @@ class GoogleCalendarService {
           await _taskService.deleteTask(userId, firestoreTask['id']);
         }
       }
-
-      debugPrint('Sync from Google Calendar completed');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error during sync: $e');
+// removed debug statement
     }
   }
 

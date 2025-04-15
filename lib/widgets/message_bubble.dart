@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:lottie/lottie.dart';
 
@@ -22,16 +21,16 @@ class MessageBubble extends StatelessWidget {
   }) : super(key: key);
 
   List<Map<String, dynamic>> parseSchedule(String scheduleText) {
-    debugPrint('Parsing schedule text: $scheduleText');
+// removed debug statement
     final lines = scheduleText
         .split('\n')
         .where((line) => line.trim().isNotEmpty)
         .toList();
     final tableStartIndex =
         lines.indexWhere((line) => line.contains('[SCHEDULE]'));
-    debugPrint('Table start index: $tableStartIndex');
+// removed debug statement
     if (tableStartIndex == -1) {
-      debugPrint('No [SCHEDULE] found in text');
+// removed debug statement
       return [];
     }
 
@@ -40,20 +39,17 @@ class MessageBubble extends StatelessWidget {
         .takeWhile((line) => line.contains('|') || line.trim().isEmpty)
         .where((line) => line.contains('|'))
         .toList();
-    debugPrint('Table lines extracted: $tableLines');
-
+// removed debug statement
     if (tableLines.length < 3) {
-      debugPrint('Table lines insufficient (< 3): $tableLines');
+// removed debug statement
       return [];
     }
 
     final dataLines = tableLines.skip(2).toList();
-    debugPrint('Data lines for schedule: $dataLines');
-
+// removed debug statement
     return dataLines.map((line) {
       final cells = line.split('|').map((cell) => cell.trim()).toList();
-      debugPrint('Parsed cells from line "$line": $cells');
-
+// removed debug statement
       DateTime? parsedDate;
       String dayText = cells.length > 1 ? cells[1] : '';
       final dateMatch = RegExp(r'\[(\d{8})\]').firstMatch(dayText);
@@ -64,9 +60,9 @@ class MessageBubble extends StatelessWidget {
           final month = int.parse(dateStr.substring(2, 4));
           final year = int.parse(dateStr.substring(4, 8));
           parsedDate = DateTime(year, month, day);
-          debugPrint('Parsed date from "$dayText": $parsedDate');
+// removed debug statement
         } catch (e) {
-          debugPrint('Error parsing date $dateStr: $e');
+// removed debug statement
         }
         dayText = dayText.replaceAll(RegExp(r'\s*\[\d{8}\]'), '').trim();
       }
@@ -83,7 +79,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Map<String, String> parseEdit(String editText) {
-    debugPrint('Parsing edit text: $editText');
+// removed debug statement
     final lines = editText.split('\n');
     final task = lines[0].split(': ')[1];
     final time = lines[1].split(': ')[1];
@@ -92,9 +88,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget buildScheduleTable(List<Map<String, dynamic>> scheduleRows) {
-    debugPrint('Building schedule table with rows: $scheduleRows');
+// removed debug statement
     if (scheduleRows.isEmpty) {
-      debugPrint('Schedule rows empty, showing no data message');
+// removed debug statement
       return const Text('No schedule data found!',
           style: TextStyle(color: Colors.white));
     }
@@ -263,10 +259,10 @@ class MessageBubble extends StatelessWidget {
 
     Widget content;
     if (isUser) {
-      debugPrint('User message detected, formatting text');
+// removed debug statement
       content = _buildFormattedText(text);
     } else {
-      debugPrint('AI message detected');
+// removed debug statement
       // Show "Thinking..." if text is empty (initial AI message state)
       if (text.isEmpty) {
         content = const Text(
@@ -278,7 +274,7 @@ class MessageBubble extends StatelessWidget {
           ),
         );
       } else if (text.contains('[SCHEDULE]')) {
-        debugPrint('Schedule detected in AI response');
+// removed debug statement
         final preScheduleText =
             text.substring(0, text.indexOf('[SCHEDULE]')).trim();
         final scheduleText = text.substring(text.indexOf('[SCHEDULE]')).trim();
@@ -288,10 +284,9 @@ class MessageBubble extends StatelessWidget {
                 .substring(scheduleText.indexOf('How does that look?'))
                 .trim()
             : '';
-        debugPrint('Pre-schedule text: $preScheduleText');
-        debugPrint('Schedule rows parsed: $scheduleRows');
-        debugPrint('Post-schedule text: $postScheduleText');
-
+// removed debug statement
+// removed debug statement
+// removed debug statement
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -341,7 +336,7 @@ class MessageBubble extends StatelessWidget {
           ],
         );
       } else if (text.startsWith('[EDIT]')) {
-        debugPrint('Edit detected in AI response');
+// removed debug statement
         final editText = text.substring(6).trim();
         final editDetails = parseEdit(editText);
         content = Column(
@@ -359,7 +354,7 @@ class MessageBubble extends StatelessWidget {
           ],
         );
       } else {
-        debugPrint('No special format detected, formatting as plain text');
+// removed debug statement
         content = _buildFormattedText(text);
       }
     }

@@ -37,7 +37,7 @@ class ChallengeService {
       debugPrint(
           'Challenge created: senderId=$senderId, receiverId=$receiverId, title=$title, description=$description');
     } catch (e) {
-      debugPrint('Error creating challenge: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -51,9 +51,9 @@ class ChallengeService {
           .update({
         'status': 'active',
       });
-      debugPrint('Challenge accepted: challengeId=$challengeId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error accepting challenge: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -65,9 +65,9 @@ class ChallengeService {
           .collection(_challengesCollection)
           .doc(challengeId)
           .delete();
-      debugPrint('Challenge declined and deleted: challengeId=$challengeId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error declining challenge: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -97,7 +97,7 @@ class ChallengeService {
             'Challenge exited: challengeId=$challengeId, exitedBy=$userId, winner=$opponentId');
       }
     } catch (e) {
-      debugPrint('Error exiting challenge: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -147,7 +147,7 @@ class ChallengeService {
             await _firestore.collection('users').doc(winner).update({
               'xp': FieldValue.increment(100),
             });
-            debugPrint('Awarded 100 XP to winner: userId=$winner');
+// removed debug statement
           }
 
           debugPrint(
@@ -155,7 +155,7 @@ class ChallengeService {
         }
       }
     } catch (e) {
-      debugPrint('Error completing challenge: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -198,7 +198,7 @@ class ChallengeService {
           'Latest submission for challengeId=$challengeId, userId=$userId: verified=$verified, canSubmit=$canSubmit');
       return canSubmit;
     } catch (e) {
-      debugPrint('Error checking submission eligibility: $e');
+// removed debug statement
       return false; // Default to false on error to prevent accidental submissions
     }
   }
@@ -237,7 +237,7 @@ class ChallengeService {
       debugPrint(
           'Photo submitted: challengeId=$challengeId, submissionId=${submissionRef.id}, data=$submissionData');
     } catch (e) {
-      debugPrint('Error submitting photo: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -283,11 +283,11 @@ class ChallengeService {
               .update({
             fieldToUpdate: FieldValue.increment(1),
           });
-          debugPrint('$fieldToUpdate incremented: challengeId=$challengeId');
+// removed debug statement
         }
       }
     } catch (e) {
-      debugPrint('Error verifying photo: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -362,7 +362,7 @@ class ChallengeService {
           });
         }
       }
-      debugPrint('Pending verifications count: ${verifications.length}');
+// removed debug statement
       return verifications;
     });
   }
@@ -415,9 +415,9 @@ class ChallengeService {
           .collection(_challengesCollection)
           .doc(challengeId)
           .delete();
-      debugPrint('Challenge deleted: challengeId=$challengeId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error deleting challenge: $e');
+// removed debug statement
       rethrow;
     }
   }

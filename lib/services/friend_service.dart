@@ -55,7 +55,7 @@ class FriendService {
       debugPrint(
           'Friend request sent from $senderId to $receiverId ($receiverUsername)');
     } catch (e) {
-      debugPrint('Error sending friend request: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -98,9 +98,9 @@ class FriendService {
 
       // Commit the batch
       await batch.commit();
-      debugPrint('Friendship established between $userId and $senderId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Error accepting friend request: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -117,7 +117,7 @@ class FriendService {
       debugPrint(
           'Friend request rejected: $senderId removed from $userId requests');
     } catch (e) {
-      debugPrint('Error rejecting friend request: $e');
+// removed debug statement
       rethrow;
     }
   }
@@ -130,10 +130,10 @@ class FriendService {
         .collection('friend_requests')
         .snapshots()
         .map((snapshot) {
-      debugPrint('Fetched ${snapshot.docs.length} friend requests for $userId');
+// removed debug statement
       return snapshot.docs.map((doc) => doc.data()).toList();
     }).handleError((error) {
-      debugPrint('Error fetching friend requests: $error');
+// removed debug statement
       throw error;
     });
   }
@@ -146,10 +146,10 @@ class FriendService {
         .collection('friends')
         .snapshots()
         .map((snapshot) {
-      debugPrint('Fetched ${snapshot.docs.length} friends for $userId');
+// removed debug statement
       return snapshot.docs.map((doc) => doc.data()).toList();
     }).handleError((error) {
-      debugPrint('Error fetching friends: $error');
+// removed debug statement
       throw error;
     });
   }
@@ -157,7 +157,7 @@ class FriendService {
   // Fetch user details (username from Firestore, PFP from Firebase Auth)
   Future<Map<String, dynamic>?> getUserDetails(String userId) async {
     try {
-      debugPrint('Fetching details for userId: $userId');
+// removed debug statement
       final userDoc = await _firestore.collection('users').doc(userId).get();
       String? username;
       String? pfpUrl;
@@ -165,17 +165,17 @@ class FriendService {
         username = userDoc.data()?['username'] as String?;
         pfpUrl =
             userDoc.data()?['photoURL'] as String?; // Synced from Firebase Auth
-        debugPrint('Firestore data: username=$username, photoURL=$pfpUrl');
+// removed debug statement
       }
 
       // Fallback to Firebase Auth for PFP if not in Firestore
       if (pfpUrl == null && _auth.currentUser?.uid == userId) {
         pfpUrl = _auth.currentUser?.photoURL;
-        debugPrint('Using Firebase Auth photoURL: $pfpUrl');
+// removed debug statement
       }
 
       if (username == null) {
-        debugPrint('No username found for $userId');
+// removed debug statement
         return null;
       }
 
@@ -184,7 +184,7 @@ class FriendService {
         'profilePictureUrl': pfpUrl,
       };
     } catch (e) {
-      debugPrint('Error fetching user details for $userId: $e');
+// removed debug statement
       return null;
     }
   }

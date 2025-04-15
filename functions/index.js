@@ -765,7 +765,7 @@ async function generateNotification(tip, timeOfDay, dateStr, weekday) {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer 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',
+      'Authorization': 'Bearer ${process.env.OPENROUTER_API_KEY}',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

@@ -45,23 +45,36 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      print('Error loading banner status: $e');
+      // Error handling
     }
   }
 
   Future<void> _launchDiscord() async {
-    final Uri url = Uri.parse('https://discord.gg/X7xQnXDD');
+    final Uri url = Uri.parse('https://discord.gg/kAQ9R9KzCM');
     try {
-      print('Attempting to launch $url');
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
         await launchUrl(url, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
-      print('Error launching URL: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error launching Discord link: $e')),
+      );
+    }
+  }
+
+  Future<void> _launchFocusFlow() async {
+    final Uri url = Uri.parse('https://focusflowapp.io/');
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(url, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error launching FocusFlow link: $e')),
       );
     }
   }
@@ -70,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height; // Define here
+    final screenHeight = MediaQuery.of(context).size.height;
 
     if (user == null) {
       return const Scaffold(body: Center(child: Text('Please log in')));
@@ -117,13 +130,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       _buildOption(
                         Icons.support,
                         'Terms of Service',
-                        () {},
+                        _launchFocusFlow,
                         context,
                       ),
                       _buildOption(
                         Icons.policy,
                         'Privacy Policy',
-                        () {},
+                        _launchFocusFlow,
                         context,
                       ),
                     ]),
@@ -239,9 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                 ],
               ),
-              SizedBox(
-                  height:
-                      screenWidth * 0.015), // Use screenWidth for consistency
+              SizedBox(height: screenWidth * 0.015),
               Text(
                 user.email ?? 'No email',
                 style: TextStyle(

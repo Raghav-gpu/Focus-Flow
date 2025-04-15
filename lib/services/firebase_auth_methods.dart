@@ -26,7 +26,6 @@ class AuthService {
       );
       return userCredential.user;
     } catch (e) {
-      debugPrint('Sign-up error: $e');
       return null;
     }
   }
@@ -53,7 +52,6 @@ class AuthService {
 
       return true;
     } catch (e) {
-      debugPrint('Error setting username: $e');
       return false;
     }
   }
@@ -63,7 +61,6 @@ class AuthService {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       return userDoc.data()?['username'] as String?;
     } catch (e) {
-      debugPrint('Error fetching username: $e');
       return null;
     }
   }
@@ -76,7 +73,6 @@ class AuthService {
       );
       return userCredential.user;
     } catch (e) {
-      debugPrint('Sign-in error: $e');
       return null;
     }
   }
@@ -96,10 +92,8 @@ class AuthService {
 
       UserCredential userCredential =
           await _auth.signInWithCredential(credential);
-      debugPrint('Google Access Token: [redacted]');
       return userCredential.user;
     } catch (e) {
-      debugPrint('Google Sign-in error: $e');
       return null;
     }
   }
@@ -110,25 +104,31 @@ class AuthService {
       if (googleUser == null) {
         googleUser = await _googleSignIn.signInSilently();
         if (googleUser == null) {
-          debugPrint('No Google user found, prompting sign-in');
           googleUser = await _googleSignIn.signIn();
         }
       }
       if (googleUser == null) {
-        debugPrint('Google sign-in canceled or failed');
         return null;
       }
 
       final googleAuth = await googleUser.authentication;
       if (googleAuth.accessToken == null) {
-        debugPrint('No access token available');
         return null;
       }
-
-      debugPrint('Retrieved Access Token: [redacted]');
       return googleAuth.accessToken;
     } catch (e) {
-      debugPrint('Error getting access token: $e');
+      return null;
+    }
+  }
+
+  Future<User?> signInWithApple() async {
+    try {
+      final appleProvider = AppleAuthProvider()
+        ..addScope('email')
+        ..addScope('fullName');
+      final userCredential = await _auth.signInWithProvider(appleProvider);
+      return userCredential.user;
+    } catch (e) {
       return null;
     }
   }
@@ -142,7 +142,6 @@ class AuthService {
         MaterialPageRoute(builder: (context) => LoginPage()),
       );
     } catch (e) {
-      debugPrint('Logout error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to log out. Please try again.')),
       );

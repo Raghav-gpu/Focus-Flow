@@ -23,9 +23,9 @@ class StreakService {
             Timestamp.fromDate(DateTime(today.year, today.month, today.day)),
         'tasksCompleted': FieldValue.increment(1),
       }, SetOptions(merge: true));
-      debugPrint('Activity recorded for $dateKey');
+// removed debug statement
     } catch (e) {
-      debugPrint('Failed to record activity: $e');
+// removed debug statement
       throw e;
     }
   }
@@ -71,8 +71,7 @@ class StreakService {
       }
       previousDate = normalizedDate;
     }
-
-    debugPrint('Calculated streak for $userId: $streak');
+// removed debug statement
     return streak;
   }
 

@@ -43,7 +43,7 @@ class TaskService {
       final accessToken = await _authService.getGoogleAccessToken();
       if (accessToken != null) {
         _googleCalendarService = GoogleCalendarService(_authService, this);
-        debugPrint('GoogleCalendarService initialized successfully');
+// removed debug statement
         final user = _authService.getCurrentUser();
         if (user != null) await syncFromGoogle(user.uid); // Silent initial sync
       } else {
@@ -51,7 +51,7 @@ class TaskService {
             'No access token available, GoogleCalendarService not initialized');
       }
     } catch (e) {
-      debugPrint('Failed to initialize GoogleCalendarService: $e');
+// removed debug statement
       _googleCalendarService = null;
     }
   }
@@ -67,7 +67,7 @@ class TaskService {
       }
       final user = _authService.getCurrentUser();
       if (user != null && _googleCalendarService != null) {
-        debugPrint('Periodic sync triggered');
+// removed debug statement
         await syncFromGoogle(user.uid); // Silent periodic sync
       }
     });
@@ -88,16 +88,16 @@ class TaskService {
     for (var field in _encryptFields) {
       if (encryptedTask.containsKey(field) && encryptedTask[field] != null) {
         final value = encryptedTask[field].toString();
-        debugPrint('Encrypting field: $field, value: "$value"');
+// removed debug statement
         try {
           if (value.trim().isNotEmpty) {
             encryptedTask[field] = await _encryptionService.encrypt(value);
           } else {
-            debugPrint('Skipping encryption for empty or invalid $field');
+// removed debug statement
             encryptedTask[field] = value;
           }
         } catch (e) {
-          debugPrint('Encryption failed for field $field: $e');
+// removed debug statement
           encryptedTask[field] = value;
         }
       }
@@ -108,7 +108,7 @@ class TaskService {
     encryptedTask['googleEventId'] = task['googleEventId'];
     encryptedTask['completedAt'] = task['completedAt'];
     encryptedTask['status'] = task['status'];
-    debugPrint('Encrypted task: $encryptedTask');
+// removed debug statement
     return encryptedTask;
   }
 
@@ -132,7 +132,7 @@ class TaskService {
         final utcStart = (task['start'] as Timestamp).toDate();
         decryptedTask['start'] = Timestamp.fromDate(utcStart.toLocal());
       } catch (e) {
-        debugPrint('Error handling start ${task['start']}: $e');
+// removed debug statement
         decryptedTask['start'] = null;
       }
     }
@@ -141,7 +141,7 @@ class TaskService {
         final utcEnd = (task['end'] as Timestamp).toDate();
         decryptedTask['end'] = Timestamp.fromDate(utcEnd.toLocal());
       } catch (e) {
-        debugPrint('Error handling end ${task['end']}: $e');
+// removed debug statement
         decryptedTask['end'] = null;
       }
     }
@@ -164,16 +164,16 @@ class TaskService {
   }
 
   Future<void> addTask(String userId, Map<String, dynamic> task) async {
-    debugPrint('Adding task for user: $userId, Task: $task');
+// removed debug statement
     if (task['title']?.toString().trim().isEmpty ?? true) {
-      debugPrint('Rejected task creation: Empty title');
+// removed debug statement
       return;
     }
     if (task['start'] == null ||
         task['start'] is! Timestamp ||
         task['end'] == null ||
         task['end'] is! Timestamp) {
-      debugPrint('Rejected task creation: Invalid start/end times');
+// removed debug statement
       return;
     }
 
@@ -194,24 +194,23 @@ class TaskService {
     };
 
     try {
-      debugPrint('Encrypting task: $taskWithUTC');
+// removed debug statement
       final encryptedTask = await _encryptTask(taskWithUTC);
-      debugPrint('Saving encrypted task to Firestore: $encryptedTask');
+// removed debug statement
       final docRef = await _firestore
           .collection('users')
           .doc(userId)
           .collection('tasks')
           .add(encryptedTask);
       final taskId = docRef.id;
-      debugPrint('Task saved to Firestore with ID: $taskId');
-
+// removed debug statement
       if (_googleCalendarService == null) {
         await _initGoogleCalendarService();
       }
       if (_googleCalendarService != null &&
           taskWithUTC['googleEventId'] == null) {
         final decryptedTask = await _decryptTask(encryptedTask);
-        debugPrint('Syncing to Google Calendar: $decryptedTask');
+// removed debug statement
         final googleEventId =
             await _googleCalendarService!.addEventToGoogle(decryptedTask);
         if (googleEventId != null) {
@@ -226,18 +225,18 @@ class TaskService {
         }
       }
     } catch (e) {
-      debugPrint('Failed to add task: $e');
+// removed debug statement
       throw e;
     }
   }
 
   Future<void> completeTask(String userId, String taskId) async {
     if (_isUpdating) {
-      debugPrint('Update in progress, skipping completeTask');
+// removed debug statement
       return;
     }
     _isUpdating = true;
-    debugPrint('Completing task ID: $taskId for user: $userId');
+// removed debug statement
     try {
       final taskDoc = await _firestore
           .collection('users')
@@ -246,7 +245,7 @@ class TaskService {
           .doc(taskId)
           .get();
       if (!taskDoc.exists) {
-        debugPrint('Task does not exist: $taskId');
+// removed debug statement
         return;
       }
 
@@ -307,7 +306,7 @@ class TaskService {
         });
       }
     } catch (e) {
-      debugPrint('Failed to complete task: $e');
+// removed debug statement
       throw e;
     } finally {
       _isUpdating = false;
@@ -317,11 +316,11 @@ class TaskService {
   Future<void> updateTask(
       String userId, String taskId, Map<String, dynamic> updates) async {
     if (_isUpdating) {
-      debugPrint('Update in progress, skipping updateTask');
+// removed debug statement
       return;
     }
     _isUpdating = true;
-    debugPrint('Updating task ID: $taskId with updates: $updates');
+// removed debug statement
     try {
       final taskDoc = await _firestore
           .collection('users')
@@ -330,46 +329,42 @@ class TaskService {
           .doc(taskId)
           .get();
       if (!taskDoc.exists) {
-        debugPrint('Task does not exist: $taskId');
+// removed debug statement
         return;
       }
       final taskData = await _decryptTask(taskDoc.data()!);
-      debugPrint('Current task data: $taskData');
-
+// removed debug statement
       if (updates.containsKey('status')) {
         if (updates['status'] == 'To Do') {
           updates['completedAt'] = null;
-          debugPrint('Setting status to To Do, clearing completedAt');
+// removed debug statement
         } else if (updates['status'] == 'Completed') {
           updates['completedAt'] = Timestamp.now();
-          debugPrint('Setting status to Completed, updating completedAt');
+// removed debug statement
         }
       }
 
       final fullUpdates = {...taskData, ...updates};
-      debugPrint('Full updates before encryption: $fullUpdates');
-
+// removed debug statement
       final encryptedUpdates = await _encryptTask(fullUpdates);
-      debugPrint('Encrypted updates: $encryptedUpdates');
-
+// removed debug statement
       await _firestore
           .collection('users')
           .doc(userId)
           .collection('tasks')
           .doc(taskId)
           .set(encryptedUpdates, SetOptions(merge: true));
-      debugPrint('Task updated in Firestore');
-
+// removed debug statement
       if (_googleCalendarService != null && taskData['googleEventId'] != null) {
         final updatedTask = {...taskData, ...updates};
-        debugPrint('Syncing to Google Calendar: $updatedTask');
+// removed debug statement
         await _googleCalendarService!
             .updateGoogleEvent(taskData['googleEventId'], updatedTask);
         debugPrint(
             'Updated Google Calendar event: ${taskData['googleEventId']}');
       }
     } catch (e) {
-      debugPrint('Failed to update task: $e');
+// removed debug statement
       throw e;
     } finally {
       _isUpdating = false;
@@ -377,10 +372,9 @@ class TaskService {
   }
 
   Future<void> deleteTask(String userId, String taskId) async {
-    debugPrint('Starting deletion for user: $userId, Task ID: $taskId');
+// removed debug statement
     _isSyncSuspended = true;
-    debugPrint('Sync suspended for deletion');
-
+// removed debug statement
     try {
       final taskDoc = await _firestore
           .collection('users')
@@ -389,7 +383,7 @@ class TaskService {
           .doc(taskId)
           .get();
       if (!taskDoc.exists) {
-        debugPrint('Task does not exist in Firestore: $taskId');
+// removed debug statement
         return;
       }
 
@@ -399,7 +393,7 @@ class TaskService {
       if (_googleCalendarService != null && googleEventId != null) {
         await _googleCalendarService!.deleteGoogleEvent(googleEventId);
         _recentlyDeletedGoogleEventIds.add(googleEventId);
-        debugPrint('Deleted from Google Calendar: $googleEventId');
+// removed debug statement
       }
 
       await _firestore
@@ -408,19 +402,19 @@ class TaskService {
           .collection('tasks')
           .doc(taskId)
           .delete();
-      debugPrint('Task deleted from Firestore: $taskId');
+// removed debug statement
     } catch (e) {
-      debugPrint('Failed to delete task: $e');
+// removed debug statement
       rethrow;
     } finally {
       Timer(Duration(seconds: _syncSuspensionDurationSeconds), () {
         _isSyncSuspended = false;
-        debugPrint('Sync resumed after deletion delay');
+// removed debug statement
       });
       if (_recentlyDeletedGoogleEventIds.isNotEmpty) {
         Timer(Duration(seconds: _syncSuspensionDurationSeconds * 2), () {
           _recentlyDeletedGoogleEventIds.clear();
-          debugPrint('Cleared recently deleted Google event IDs');
+// removed debug statement
         });
       }
     }
@@ -446,7 +440,7 @@ class TaskService {
       );
       return decryptedTasks;
     }).handleError((e) {
-      debugPrint('Stream error in getTasks: $e');
+// removed debug statement
       return [];
     });
   }
@@ -464,7 +458,7 @@ class TaskService {
         return await _decryptTask(data);
       }).toList());
     } catch (e) {
-      debugPrint('Error in getTasksSnapshot: $e');
+// removed debug statement
       return [];
     }
   }
@@ -492,7 +486,7 @@ class TaskService {
       await _initGoogleCalendarService();
     }
     if (_googleCalendarService != null && !_isSyncSuspended && !_isUpdating) {
-      debugPrint('Starting sync from Google for user: $userId');
+// removed debug statement
       await _googleCalendarService!.syncFromGoogle(userId);
     } else {
       debugPrint(
@@ -501,18 +495,18 @@ class TaskService {
   }
 
   Future<void> triggerSync(String userId) async {
-    debugPrint('Triggering manual sync for user: $userId');
+// removed debug statement
     await _initGoogleCalendarService();
     if (_googleCalendarService != null) {
       await syncFromGoogle(userId);
       await _syncToGoogle(userId);
     } else {
-      debugPrint('GoogleCalendarService not initialized, cannot trigger sync');
+// removed debug statement
     }
   }
 
   Future<void> _syncToGoogle(String userId) async {
-    debugPrint('Syncing Firestore tasks to Google for user: $userId');
+// removed debug statement
     if (_googleCalendarService == null) {
       await _initGoogleCalendarService();
     }
@@ -540,7 +534,7 @@ class TaskService {
         }
       }
     } catch (e) {
-      debugPrint('Error syncing to Google: $e');
+// removed debug statement
     }
   }
 

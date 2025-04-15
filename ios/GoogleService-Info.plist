@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>164391391883-qau23d7gfjj7c1k6lokv0uulmoc33d4r.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.164391391883-qau23d7gfjj7c1k6lokv0uulmoc33d4r</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>164391391883-jk64d6evh2ln6ehbodlvere5tk9vq1jr.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBriVsS4eqXrlNaViOe0W72VcabmpvXomo</string>
+	<key>GCM_SENDER_ID</key>
+	<string>164391391883</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.focusflow.focus</string>
+	<key>PROJECT_ID</key>
+	<string>focusflow-e2543</string>
+	<key>STORAGE_BUCKET</key>
+	<string>focusflow-e2543.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:164391391883:ios:5aed7d8fc71c9cb06e7a8e</string>
+</dict>
+</plist>

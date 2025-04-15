@@ -21,7 +21,7 @@ class NotificationService {
     await _notificationsPlugin.initialize(initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
       // Handle notification tap (optional)
-      debugPrint('Notification tapped with payload: ${response.payload}');
+// removed debug statement
     });
 
     // Create notification channel

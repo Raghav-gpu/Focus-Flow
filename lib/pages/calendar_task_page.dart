@@ -34,7 +34,7 @@ class _CalendarTaskPageState extends State<CalendarTaskPage> {
       await _taskService.triggerSync(widget.userId); // Silent sync
       // No setState needed—stream will update UI if changes occur
     } catch (e) {
-      debugPrint('Silent sync failed: $e');
+// removed debug statement
       // Optionally show a subtle error (e.g., SnackBar) if critical
     }
   }

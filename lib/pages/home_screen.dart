@@ -14,6 +14,7 @@ import 'package:focus/widgets/progress_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
 class FocusFlowHome extends StatefulWidget {
@@ -37,12 +38,102 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
   ];
   late String randomGreeting;
   int? _lastLevel;
+  bool _hasShownFeedbackPrompt = false;
+  // ADDED: State variables for feedback icon
+  bool _showFeedbackIcon = false;
+  String? _feedbackLink;
 
   @override
   void initState() {
     super.initState();
     randomGreeting = greetings[Random().nextInt(greetings.length)];
     _loadLastLevel();
+    // ADDED: Load feedback status
+    _loadFeedbackStatus();
+    _checkFeedbackPrompt();
+  }
+
+  // ADDED: Fetch feedback status once
+  Future<void> _loadFeedbackStatus() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('survey_questions')
+          .doc('feedback')
+          .get();
+      if (doc.exists) {
+        setState(() {
+          _showFeedbackIcon = doc.data()?['show'] ?? false;
+          _feedbackLink = doc.data()?['link'] as String?;
+        });
+      }
+    } catch (e) {
+// removed debug statement
+    }
+  }
+
+  // ADDED: Launch feedback link
+  Future<void> _launchFeedback() async {
+    if (_feedbackLink == null) return;
+    final Uri url = Uri.parse(_feedbackLink!);
+    try {
+// removed debug statement
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('feedback_submitted_${user!.uid}', true);
+      } else {
+// removed debug statement
+      }
+    } catch (e) {
+// removed debug statement
+    }
+  }
+
+  Future<void> _checkFeedbackPrompt() async {
+    if (user == null) {
+// removed debug statement
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasSubmittedFeedback =
+        prefs.getBool('feedback_submitted_${user!.uid}') ?? false;
+    if (hasSubmittedFeedback) {
+// removed debug statement
+      return;
+    }
+
+    final isFreshStart = prefs.getBool('is_fresh_start_${user!.uid}') ?? true;
+    if (!isFreshStart) {
+// removed debug statement
+      return;
+    }
+
+    try {
+      final feedbackDoc = await FirebaseFirestore.instance
+          .collection('survey_questions')
+          .doc('feedback')
+          .get();
+      if (!feedbackDoc.exists) {
+// removed debug statement
+        return;
+      }
+      final feedbackData = feedbackDoc.data();
+// removed debug statement
+      if (feedbackData != null && feedbackData['show'] == true && mounted) {
+// removed debug statement
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showFeedbackPrompt(feedbackData['link']);
+        });
+      } else {
+        print(
+            'Conditions not met: show=${feedbackData?['show']}, mounted=$mounted');
+      }
+    } catch (e) {
+// removed debug statement
+    } finally {
+      await prefs.setBool('is_fresh_start_${user!.uid}', false);
+    }
   }
 
   Future<void> _loadLastLevel() async {
@@ -60,6 +151,119 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
     setState(() {
       _lastLevel = newLevel;
     });
+  }
+
+  void _showFeedbackPrompt(String feedbackLink) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(screenWidth * 0.05),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Lottie.asset(
+                  'assets/animations/feedback_animation.json',
+                  width: 120,
+                  height: 120,
+                  repeat: true,
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  "Level Up FocusFlow! 🚀",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.05,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.blue.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "We're in beta, and your feedback is the ultimate power-up! Help shape FocusFlow's epic future.",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.037,
+                    color: Colors.grey[400],
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        "Later",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool(
+                            'feedback_submitted_${user!.uid}', true);
+                        final uri = Uri.parse(feedbackLink);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        }
+                        if (mounted) Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: screenWidth * 0.06,
+                          vertical: screenWidth * 0.03,
+                        ),
+                      ),
+                      child: Text(
+                        "Boost Now!",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showLevelUpDialog(int newLevel) {
@@ -81,8 +285,8 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
               children: [
                 Lottie.asset(
                   'assets/animations/level_animation.json',
-                  width: 150,
-                  height: 150,
+                  width: 250,
+                  height: 250,
                   repeat: true,
                 ),
                 const SizedBox(height: 20),
@@ -124,7 +328,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
   }
 
   double _calculateGreetingFontSize(String text, double screenWidth) {
-    const double maxFontSize = 0.06; // Reduced from 0.08
+    const double maxFontSize = 0.06;
     const double minFontSize = 0.04;
     const double baseCharWidth = 10;
 
@@ -221,40 +425,54 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // REPLACED: Modified Row (original lines 371–401)
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            CircleAvatar(
-                              radius: screenWidth * 0.06,
-                              backgroundImage: user!.photoURL != null
-                                  ? NetworkImage(user!.photoURL!)
-                                  : null,
-                              child: user!.photoURL == null
-                                  ? Icon(
-                                      Icons.person,
-                                      size: screenWidth * 0.06,
-                                      color: Colors.grey[400],
-                                    )
-                                  : null,
-                            ),
-                            SizedBox(width: screenWidth * 0.03),
-                            Flexible(
-                              child: Text(
-                                greetingText,
-                                style: TextStyle(
-                                  fontSize: greetingFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.blue.withOpacity(0.5),
-                                      blurRadius: 8,
-                                    ),
-                                  ],
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: screenWidth * 0.06,
+                                  backgroundImage: user!.photoURL != null
+                                      ? NetworkImage(user!.photoURL!)
+                                      : null,
+                                  child: user!.photoURL == null
+                                      ? Icon(
+                                          Icons.person,
+                                          size: screenWidth * 0.06,
+                                          color: Colors.grey[400],
+                                        )
+                                      : null,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
+                                SizedBox(width: screenWidth * 0.03),
+                                Text(
+                                  greetingText,
+                                  style: TextStyle(
+                                    fontSize: greetingFontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.blue.withOpacity(0.5),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ],
                             ),
+                            if (_showFeedbackIcon)
+                              GestureDetector(
+                                onTap: _launchFeedback,
+                                child: Image.asset(
+                                  'assets/images/feedback.png',
+                                  width: screenWidth * 0.1,
+                                  height: screenWidth * 0.1,
+                                ),
+                              ),
                           ],
                         ),
                         SizedBox(height: screenHeight * 0.02),
@@ -282,7 +500,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      padding: EdgeInsets.all(screenWidth * 0.03), // Consistent padding
+      padding: EdgeInsets.all(screenWidth * 0.03),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -323,7 +541,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                       Icon(
                         Icons.local_fire_department,
                         color: Colors.orangeAccent,
-                        size: screenWidth * 0.06, // Consistent icon size
+                        size: screenWidth * 0.06,
                       ),
                       SizedBox(width: screenWidth * 0.01),
                       Text(
@@ -365,7 +583,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
             Text(
               "Today's Tasks",
               style: TextStyle(
-                fontSize: screenWidth * 0.055, // Increased from 0.045
+                fontSize: screenWidth * 0.055,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -427,8 +645,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     child: Container(
                       width: screenWidth * 0.85,
                       height: screenHeight * 0.15,
-                      padding: EdgeInsets.all(
-                          screenWidth * 0.03), // Consistent padding
+                      padding: EdgeInsets.all(screenWidth * 0.03),
                       decoration: BoxDecoration(
                         color: Colors.grey[900],
                         borderRadius: BorderRadius.circular(12),
@@ -447,7 +664,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                           Icon(
                             Icons.add_task,
                             color: Colors.blueAccent,
-                            size: screenWidth * 0.09, // Consistent icon size
+                            size: screenWidth * 0.09,
                           ),
                           SizedBox(height: screenHeight * 0.01),
                           Text(
@@ -490,8 +707,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                   return Container(
                     width: screenWidth * (screenWidth > 600 ? 0.45 : 0.7),
                     margin: EdgeInsets.only(right: screenWidth * 0.03),
-                    padding: EdgeInsets.all(
-                        screenWidth * 0.03), // Consistent padding
+                    padding: EdgeInsets.all(screenWidth * 0.03),
                     decoration: BoxDecoration(
                       color: Colors.grey[900],
                       borderRadius: BorderRadius.circular(12),
@@ -601,7 +817,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(screenWidth * 0.03), // Consistent padding
+        padding: EdgeInsets.all(screenWidth * 0.03),
         margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
         decoration: BoxDecoration(
           color: Colors.grey[900],
@@ -629,11 +845,10 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                     ),
                     child: SvgPicture.asset(
                       'assets/images/Assistant.svg',
-                      width: screenWidth *
-                          0.06, // Matches the consistent icon size
+                      width: screenWidth * 0.06,
                       height: screenWidth * 0.06,
                       colorFilter: const ColorFilter.mode(
-                        Colors.blueAccent, // Matches the original icon color
+                        Colors.blueAccent,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -733,7 +948,7 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
             Text(
               "Your Challenges",
               style: TextStyle(
-                fontSize: screenWidth * 0.055, // Increased from 0.045
+                fontSize: screenWidth * 0.055,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -766,227 +981,291 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
         ),
         SizedBox(height: screenHeight * 0.015),
         SizedBox(
-          height: screenHeight * 0.20, // Increased from 0.15 to utilize space
+          height: screenHeight * 0.20,
           child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _challengeService.getChallenges(userId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return Center(
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              const FriendsPage(initialTabIndex: 1)),
-                    ),
-                    child: Container(
-                      width: screenWidth * 0.85,
-                      height: screenHeight * 0.20,
-                      padding: EdgeInsets.all(
-                          screenWidth * 0.03), // Consistent padding
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.emoji_events,
-                            color: Colors.blueAccent,
-                            size: screenWidth * 0.15, // Consistent icon size
-                          ),
-                          SizedBox(height: screenHeight * 0.01),
-                          Text(
-                            "Challenge Friends",
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.045,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            "Challenge your friends to exciting tasks!",
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.035,
-                              color: Colors.grey[400],
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              final challenges = snapshot.data!
-                  .where(
-                      (c) => c['status'] == 'active') // Only active challenges
-                  .toList();
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: challenges.length,
-                itemBuilder: (context, index) {
-                  final challenge = challenges[index];
-                  final isSender = challenge['senderId'] == userId;
-                  final opponentId = isSender
-                      ? challenge['receiverId']
-                      : challenge['senderId'];
-                  final myProgress = (isSender
-                          ? challenge['senderProgress']
-                          : challenge['receiverProgress']) as int? ??
-                      0;
-                  final durationDays = challenge['durationDays'] as int? ?? 1;
-                  final endDateString = challenge['endDate'] as String?;
-                  final endDate = endDateString != null
-                      ? DateTime.tryParse(endDateString) ?? DateTime.now()
-                      : DateTime.now();
-                  final daysLeft = endDate
-                      .difference(DateTime.now())
-                      .inDays
-                      .clamp(
-                          0, durationDays); // Ensure non-negative, max duration
-                  final title = challenge['title'] as String? ??
-                      challenge['description'] as String? ??
-                      'No Title';
-                  final capitalizedTitle = title.isNotEmpty
-                      ? title[0].toUpperCase() + title.substring(1)
-                      : 'No Title';
-
-                  return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              const FriendsPage(initialTabIndex: 1)),
-                    ),
-                    child: Container(
-                      width: screenWidth * (screenWidth > 600 ? 0.45 : 0.7),
-                      margin: EdgeInsets.only(right: screenWidth * 0.03),
-                      padding: EdgeInsets.all(
-                          screenWidth * 0.03), // Consistent padding
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[800]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(screenWidth * 0.02),
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.blue, Colors.blueAccent],
+              stream: _challengeService.getChallenges(userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return SizedBox(
+                    height: screenHeight * 0.15,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  const FriendsPage(initialTabIndex: 1)),
+                        ),
+                        child: Container(
+                          width: screenWidth * 0.85,
+                          height: screenHeight * 0.15,
+                          padding: EdgeInsets.all(screenWidth * 0.03),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[900],
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                Border.all(color: Colors.blue.withOpacity(0.3)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.2),
+                                blurRadius: 8,
                               ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.emoji_events,
-                              color: Colors.white,
-                              size: screenWidth * 0.06, // Consistent icon size
-                            ),
+                            ],
                           ),
-                          SizedBox(width: screenWidth * 0.03),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        capitalizedTitle,
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.04,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    Text(
-                                      "$daysLeft days left",
-                                      style: TextStyle(
-                                        fontSize: screenWidth * 0.035,
-                                        color: Colors.blueAccent,
-                                      ),
-                                    ),
-                                  ],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.emoji_events,
+                                color: Colors.blueAccent,
+                                size: screenWidth * 0.09,
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              Text(
+                                "Add Challenge",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.045,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
                                 ),
-                                SizedBox(height: screenHeight * 0.005),
-                                FutureBuilder<String?>(
-                                  future: friendService.getUsername(opponentId),
-                                  builder: (context, snapshot) {
-                                    return Text(
-                                      "vs ${snapshot.data ?? 'Opponent'}",
-                                      style: TextStyle(
-                                        fontSize: screenWidth * 0.035,
-                                        color: Colors.grey[400],
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    );
-                                  },
+                              ),
+                              Text(
+                                "Tap to create a new challenge",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.035,
+                                  color: Colors.grey[400],
                                 ),
-                                SizedBox(height: screenHeight * 0.01),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "Progress",
-                                      style: TextStyle(
-                                        fontSize: screenWidth * 0.035,
-                                        color: Colors.grey[400],
-                                      ),
-                                    ),
-                                    Text(
-                                      "$myProgress/$durationDays",
-                                      style: TextStyle(
-                                        fontSize: screenWidth * 0.035,
-                                        color: Colors.grey[400],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(
-                                  height: screenHeight * 0.015,
-                                  child: LinearProgressIndicator(
-                                    value: myProgress / durationDays,
-                                    backgroundColor: Colors.grey[800],
-                                    valueColor: const AlwaysStoppedAnimation(
-                                        Colors.blueAccent),
-                                  ),
-                                ),
-                              ],
-                            ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   );
-                },
-              );
-            },
-          ),
+                }
+
+                final challenges = snapshot.data!;
+                if (challenges.where((c) => c['status'] == 'active').isEmpty) {
+                  return SizedBox(
+                    height: screenHeight * 0.15,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  const FriendsPage(initialTabIndex: 1)),
+                        ),
+                        child: Container(
+                          width: screenWidth * 0.85,
+                          height: screenHeight * 0.25,
+                          padding: EdgeInsets.all(screenWidth * 0.03),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[900],
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                Border.all(color: Colors.blue.withOpacity(0.3)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.2),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.emoji_events,
+                                color: Colors.blueAccent,
+                                size: screenWidth * 0.09,
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              Text(
+                                "Add Challenge",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.045,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                "Tap to create a new challenge",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.035,
+                                  color: Colors.grey[400],
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: challenges.length,
+                  itemBuilder: (context, index) {
+                    final challenge = challenges[index];
+                    if (challenge['status'] != 'active') {
+                      return const SizedBox.shrink();
+                    }
+                    final isSender = challenge['senderId'] == userId;
+                    final opponentId = isSender
+                        ? challenge['receiverId']
+                        : challenge['senderId'];
+                    final myProgress = (isSender
+                            ? challenge['senderProgress']
+                            : challenge['receiverProgress']) as int? ??
+                        0;
+                    final durationDays = challenge['durationDays'] as int? ?? 1;
+                    final endDateString = challenge['endDate'] as String?;
+                    final endDate = endDateString != null
+                        ? DateTime.tryParse(endDateString) ?? DateTime.now()
+                        : DateTime.now();
+                    final daysLeft = endDate
+                        .difference(DateTime.now())
+                        .inDays
+                        .clamp(0, durationDays);
+                    final title = challenge['title'] as String? ??
+                        challenge['description'] as String? ??
+                        'No Title';
+                    final capitalizedTitle = title.isNotEmpty
+                        ? title[0].toUpperCase() + title.substring(1)
+                        : 'No Title';
+
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const FriendsPage(initialTabIndex: 1)),
+                      ),
+                      child: Container(
+                        width: screenWidth * (screenWidth > 600 ? 0.45 : 0.7),
+                        margin: EdgeInsets.only(right: screenWidth * 0.03),
+                        padding: EdgeInsets.all(screenWidth * 0.03),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[800]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(screenWidth * 0.02),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.blue, Colors.blueAccent],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.emoji_events,
+                                color: Colors.white,
+                                size: screenWidth * 0.06,
+                              ),
+                            ),
+                            SizedBox(width: screenWidth * 0.03),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          capitalizedTitle,
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.04,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                      Text(
+                                        "$daysLeft days left",
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.035,
+                                          color: Colors.blueAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: screenHeight * 0.005),
+                                  FutureBuilder<String?>(
+                                    future:
+                                        friendService.getUsername(opponentId),
+                                    builder: (context, snapshot) {
+                                      return Text(
+                                        "vs ${snapshot.data ?? 'Opponent'}",
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.035,
+                                          color: Colors.grey[400],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: screenHeight * 0.01),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Progress",
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.035,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                      Text(
+                                        "$myProgress/$durationDays",
+                                        style: TextStyle(
+                                          fontSize: screenWidth * 0.035,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(
+                                    height: screenHeight * 0.015,
+                                    child: LinearProgressIndicator(
+                                      value: myProgress / durationDays,
+                                      backgroundColor: Colors.grey[800],
+                                      valueColor: const AlwaysStoppedAnimation(
+                                          Colors.blueAccent),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
         ),
       ],
     );

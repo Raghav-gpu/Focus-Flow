@@ -28,7 +28,7 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
 
   Future<void> _updateStatus(String newStatus) async {
     if (_isUpdating) {
-      debugPrint('Update already in progress, skipping');
+// removed debug statement
       return;
     }
     debugPrint(
@@ -36,21 +36,21 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
     setState(() => _isUpdating = true);
     try {
       if (newStatus == 'Completed') {
-        debugPrint('Calling completeTask');
+// removed debug statement
         await _taskService.completeTask(widget.userId, widget.task['id']);
       } else {
-        debugPrint('Calling updateTask with status: $newStatus');
+// removed debug statement
         await _taskService.updateTask(
             widget.userId, widget.task['id'], {'status': newStatus});
-        debugPrint('updateTask completed successfully');
+// removed debug statement
       }
-      debugPrint('Status update successful, notifying parent');
+// removed debug statement
       widget.onTaskUpdated();
       if (mounted) {
         Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint('Failed to update status: $e');
+// removed debug statement
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -62,13 +62,13 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
     } finally {
       if (mounted) {
         setState(() => _isUpdating = false);
-        debugPrint('Update complete, _isUpdating reset');
+// removed debug statement
       }
     }
   }
 
   Future<void> _deleteTask() async {
-    debugPrint('Deleting task ID: ${widget.task['id']}');
+// removed debug statement
     try {
       await _taskService.deleteTask(widget.userId, widget.task['id']);
       widget.onTaskUpdated();
@@ -76,7 +76,7 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
         Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint('Failed to delete task: $e');
+// removed debug statement
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -89,7 +89,7 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   }
 
   void _editTask() {
-    debugPrint('Opening edit form for task ID: ${widget.task['id']}');
+// removed debug statement
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -106,12 +106,12 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
   }
 
   void _retryFetch() {
-    debugPrint('Retrying task fetch');
+// removed debug statement
     setState(() {});
   }
 
   Stream<Map<String, dynamic>> _getTaskStream(String userId, String taskId) {
-    debugPrint('Streaming task data for ID: $taskId');
+// removed debug statement
     return _taskService.getTasks(userId).map((tasks) {
       return tasks.firstWhere((task) => task['id'] == taskId);
     });
@@ -135,13 +135,13 @@ class _TaskDetailPopupState extends State<TaskDetailPopup> {
           }
 
           if (snapshot.hasError) {
-            debugPrint('Stream error: ${snapshot.error}');
+// removed debug statement
             return _buildErrorState(
                 'Error: ${snapshot.error}', screenHeight, screenWidth);
           }
 
           if (!snapshot.hasData) {
-            debugPrint('No task data found');
+// removed debug statement
             return _buildErrorState(
                 'Task not found', screenHeight, screenWidth);
           }

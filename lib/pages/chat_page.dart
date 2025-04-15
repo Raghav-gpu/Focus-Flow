@@ -71,8 +71,13 @@ class _ChatPageState extends State<ChatPage> {
       final tasksSnapshot = await _taskService.getTasks(widget.userId).first;
       final tasks = tasksSnapshot;
       final tasksString = tasks.map((task) {
-        if (task == null)
-          return '- Untitled (No description), Priority: Unknown, Status: Unknown, Due: No date specified';
+        if (task == null) {
+          return '- Untitled (No description), Priority: Unknown, Status: Unknown, Start: Unknown, Due: No date specified';
+        }
+        final start = task['start'] != null
+            ? DateFormat('yyyy-MM-dd HH:mm')
+                .format((task['start'] as Timestamp).toDate())
+            : 'Unknown';
         final date = task['date'] != null
             ? (task['date'] as Timestamp).toDate().toString()
             : 'No date specified';
@@ -80,7 +85,7 @@ class _ChatPageState extends State<ChatPage> {
         final description = task['description']?.toString() ?? 'No description';
         final priority = task['priority']?.toString() ?? 'Unknown';
         final status = task['status']?.toString() ?? 'Unknown';
-        return '- $title ($description), Priority: $priority, Status: $status, Due: $date';
+        return '- $title ($description), Priority: $priority, Status: $status, Start: $start, Due: $date';
       }).join('\n');
       promptToSend =
           '$userMessage\n\nCurrent date: $dateString\nCurrent day: $dayString\nCurrent year: $yearString\nCurrent time: $timeString\nExisting tasks:\n$tasksString';
@@ -191,7 +196,7 @@ class _ChatPageState extends State<ChatPage> {
 
   void _onAddToCalendar(List<Map<String, dynamic>> scheduleRows, String userId,
       int messageIndex) async {
-    debugPrint('Adding to calendar: $scheduleRows');
+// removed debug statement
     if (scheduleRows.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No schedule rows to add')),
@@ -212,14 +217,14 @@ class _ChatPageState extends State<ChatPage> {
       DateTime? taskDate = row['date'] as DateTime?;
 
       if (taskDate == null) {
-        debugPrint('Warning: No date parsed for "$dayString", skipping');
+// removed debug statement
         continue;
       }
 
       // Parse start time (24-hour HH:mm)
       final timeParts = time.split(':');
       if (timeParts.length != 2) {
-        debugPrint('Invalid time format for "$time", skipping');
+// removed debug statement
         continue;
       }
       final hour = int.tryParse(timeParts[0]);
@@ -236,13 +241,13 @@ class _ChatPageState extends State<ChatPage> {
       // Parse duration and calculate end time
       final durationParts = duration.split(' ');
       if (durationParts.length != 2) {
-        debugPrint('Invalid duration format for "$duration", skipping');
+// removed debug statement
         continue;
       }
       final durationValue = int.tryParse(durationParts[0]);
       final durationUnit = durationParts[1].toLowerCase();
       if (durationValue == null) {
-        debugPrint('Failed to parse duration value "$duration", skipping');
+// removed debug statement
         continue;
       }
 
@@ -252,7 +257,7 @@ class _ChatPageState extends State<ChatPage> {
       } else if (durationUnit.startsWith('hr')) {
         endTime = startTime.add(Duration(hours: durationValue));
       } else {
-        debugPrint('Unknown duration unit "$durationUnit", skipping');
+// removed debug statement
         continue;
       }
 
@@ -261,9 +266,7 @@ class _ChatPageState extends State<ChatPage> {
             'End time $endTime is before start time $startTime, skipping');
         continue;
       }
-
-      debugPrint('Start: $startTime, End: $endTime');
-
+// removed debug statement
       final parts = activity.split(':');
       final title = parts[0].trim();
       final description = parts.length > 1 ? parts[1].trim() : 'No description';
@@ -280,7 +283,7 @@ class _ChatPageState extends State<ChatPage> {
         debugPrint(
             'Task added successfully: $title from $startTime to $endTime');
       } catch (e) {
-        debugPrint('Failed to add task: $title - Error: $e');
+// removed debug statement
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to add task: $e')),
         );

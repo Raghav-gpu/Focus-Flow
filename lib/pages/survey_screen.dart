@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:focus/services/survey_service.dart';
 import 'package:focus/services/firebase_auth_methods.dart';
 import 'package:focus/pages/home_screen.dart'; // Add this import for FocusFlowHome
+import 'package:focus/widgets/navigation_wrapper.dart';
 import 'package:lottie/lottie.dart';
 
 class SurveyScreen extends StatefulWidget {
@@ -115,7 +116,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
       // Redirect to FocusFlowHome after animation
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const FocusFlowHome()),
+        MaterialPageRoute(builder: (context) => const NavigationWrapper()),
       );
     }
   }

@@ -16,10 +16,8 @@ class TopTasksWidget extends StatelessWidget {
     final now = DateTime.now().toUtc();
     final startOfToday = DateTime.utc(now.year, now.month, now.day);
     final endOfToday = startOfToday.add(const Duration(days: 1));
-
-    print('Start of today (UTC): $startOfToday');
-    print('End of today (UTC): $endOfToday');
-
+// removed debug statement
+// removed debug statement
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -84,7 +82,7 @@ class TopTasksWidget extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
-                  print('Snapshot error: ${snapshot.error}');
+// removed debug statement
                   return const Text(
                     'Error loading tasks',
                     style: TextStyle(color: Colors.redAccent),
@@ -92,7 +90,7 @@ class TopTasksWidget extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  print('No tasks due today: ${snapshot.data}');
+// removed debug statement
                   return const Text(
                     'No tasks due today!',
                     style: TextStyle(

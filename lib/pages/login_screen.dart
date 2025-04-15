@@ -4,6 +4,8 @@ import 'package:focus/pages/home_screen.dart';
 import 'package:focus/services/firebase_auth_methods.dart';
 import 'package:lottie/lottie.dart';
 
+import '../widgets/navigation_wrapper.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -164,11 +166,68 @@ class _LoginPageState extends State<LoginPage> {
                         );
                       },
                     ),
+
+                    SizedBox(height: screenHeight * 0.02),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.9, end: 1.0),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      builder: (context, scale, child) {
+                        return Transform.scale(
+                          scale: scale,
+                          child: _buildAppleLoginButton(scaleFactor),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppleLoginButton(double scaleFactor) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: screenWidth * 0.7,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12 * scaleFactor),
+        color: Colors.black,
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withOpacity(0.2),
+            blurRadius: 10 * scaleFactor,
+            spreadRadius: 2 * scaleFactor,
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _promptForAppleSignIn,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: EdgeInsets.symmetric(vertical: 16 * scaleFactor),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12 * scaleFactor),
+          ),
+        ),
+        icon: Icon(
+          Icons.apple,
+          color: Colors.white,
+          size: 24 * scaleFactor,
+        ),
+        label: Text(
+          'Sign in with Apple',
+          style: TextStyle(
+            fontSize: 16 * scaleFactor,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -215,6 +274,143 @@ class _LoginPageState extends State<LoginPage> {
             fontSize: 16 * scaleFactor,
             fontWeight: FontWeight.w600,
             color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _promptForAppleSignIn() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth / 375;
+    bool isChecked = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(screenWidth * 0.06),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.grey[900]!.withOpacity(0.95),
+                  Colors.black.withOpacity(0.95),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sign In with Apple',
+                  style: TextStyle(
+                    fontSize: 22 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.blue.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.03),
+                Text(
+                  'Sign in securely with your Apple ID.\n'
+                  'Your email may be hidden using Apple’s private relay.\n'
+                  'FocusFlow will access your email and name to set up your account.',
+                  style: TextStyle(
+                    fontSize: 14 * scaleFactor,
+                    color: Colors.grey[400],
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.03),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: isChecked,
+                      onChanged: (value) {
+                        setState(() {
+                          isChecked = value ?? false;
+                        });
+                      },
+                      activeColor: Colors.blueAccent,
+                      checkColor: Colors.white,
+                      side: BorderSide(color: Colors.grey[400]!),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'I agree to the Terms of Service and Privacy Policy. I understand that my personal data will be processed in accordance with applicable data protection laws (e.g., GDPR, CCPA) to provide and improve the FocusFlow service. You can withdraw consent at any time via account settings.',
+                        style: TextStyle(
+                          fontSize: 12 * scaleFactor,
+                          color: Colors.grey[400],
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenWidth * 0.05),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: isChecked
+                        ? () {
+                            Navigator.pop(context);
+                            _handleAppleSignIn();
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isChecked
+                              ? [Colors.blue, Colors.blueAccent]
+                              : [Colors.grey, Colors.grey],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.04,
+                        vertical: screenWidth * 0.025,
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -360,12 +556,24 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Future<void> _handleAppleSignIn() async {
+    User? user = await _authService.signInWithApple();
+    if (user != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const NavigationWrapper()),
+      );
+    } else {
+      _showErrorSnackBar('Apple login failed.');
+    }
+  }
+
   Future<void> _handleGoogleSignIn() async {
     User? user = await _authService.signInWithGoogle();
     if (user != null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const FocusFlowHome()),
+        MaterialPageRoute(builder: (context) => const NavigationWrapper()),
       );
     } else {
       _showErrorSnackBar('Google login failed.');
