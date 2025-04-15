@@ -1,6 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:focus/pages/home_screen.dart';
 import 'package:focus/services/firebase_auth_methods.dart';
 import 'package:lottie/lottie.dart';
 
@@ -167,18 +168,20 @@ class _LoginPageState extends State<LoginPage> {
                       },
                     ),
 
-                    SizedBox(height: screenHeight * 0.02),
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.9, end: 1.0),
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeOut,
-                      builder: (context, scale, child) {
-                        return Transform.scale(
-                          scale: scale,
-                          child: _buildAppleLoginButton(scaleFactor),
-                        );
-                      },
-                    ),
+                    if (Platform.isIOS) ...[
+                      SizedBox(height: screenHeight * 0.02),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.9, end: 1.0),
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOut,
+                        builder: (context, scale, child) {
+                          return Transform.scale(
+                            scale: scale,
+                            child: _buildAppleLoginButton(scaleFactor),
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
