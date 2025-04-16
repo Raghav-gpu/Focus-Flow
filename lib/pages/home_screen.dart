@@ -467,10 +467,35 @@ class _FocusFlowHomeState extends State<FocusFlowHome> {
                             if (_showFeedbackIcon)
                               GestureDetector(
                                 onTap: _launchFeedback,
-                                child: Image.asset(
-                                  'assets/images/feedback.png',
-                                  width: screenWidth * 0.1,
-                                  height: screenWidth * 0.1,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth * 0.03,
+                                    vertical: screenWidth * 0.015,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Colors.blue, Colors.blueAccent],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    "Upgrade FocusFlow",
+                                    style: TextStyle(
+                                      fontSize: screenWidth * 0.035,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                           ],
